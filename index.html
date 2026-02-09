@@ -1,0 +1,3932 @@
+<!DOCTYPE html>
+<!--
+  年会抽奖页面 - 开源版
+  使用前请在本文件中搜索「填入」或「示例」，按注释填写：
+  - 页面 <title>、左上角 .logo、中间 .title-text：公司/年会名称
+  - prizeImageMap：奖品名称 -> 图片路径（可选）
+  - employeesRaw：员工名单 [部门, 姓名, 组别]
+  - prizeItems：各等级奖品名称列表
+  - prizeLevels：奖项等级、名额、资格组别
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- 填入：页面标题，如「XX公司 202X 年会抽奖」 -->
+  <title>年会抽奖现场</title>
+
+  <style>
+    :root{
+      --gold:#ffd700;--green:#00ffbf;--red:#ff2e63;--blue:#00f2ff;--purple:#bd00ff;
+      --bg:#050505;
+      --panel:rgba(12,12,18,0.78);
+      --panel2:rgba(12,12,18,0.62);
+      --border:rgba(255,255,255,0.14);
+      --border2:rgba(255,255,255,0.10);
+      --shadow:0 12px 34px rgba(0,0,0,0.55);
+      --radius:16px;
+
+      --safeTop:92px;
+      --safeLeft:18px;
+      --safeRight:18px;
+      --safeBottom:18px;
+      
+      /* 针对1536*768大屏优化 */
+      --slotMinWidth:140px;
+      --slotMinHeight:100px;
+
+      --ctlW: min(480px, 30vw);
+      --wallPadTop: 10px;
+
+      --fsTitle: clamp(28px, 2.2vw, 38px);
+      --fsLogo: clamp(20px, 1.4vw, 28px);
+      --fsBtn: clamp(15px, 1.2vw, 18px);
+      --fsBase: clamp(15px, 1.2vw, 18px);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background:var(--bg);
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(0,242,255,0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(189,0,255,0.03) 0%, transparent 50%);
+      background-size:100% 100%, 100% 100%;
+      color:#fff;
+      font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+      height:100vh;
+      overflow:hidden;
+      user-select:none;
+      position:relative;
+    }
+    body::before{
+      content:"";
+      position:fixed;
+      top:0;left:0;right:0;bottom:0;
+      background:radial-gradient(ellipse at center, 
+        rgba(0,242,255,0.02) 0%, 
+        transparent 70%);
+      pointer-events:none;
+      z-index:1;
+    }
+
+    #toast{
+      position:fixed;
+      top: calc(var(--safeTop) + 6px);
+      left:50%;
+      transform:translateX(-50%);
+      background:rgba(0,0,0,0.95);
+      border:2px solid rgba(0,242,255,0.6);
+      box-shadow:0 12px 32px rgba(0,0,0,0.6),
+                 0 0 20px rgba(0,242,255,0.2);
+      padding:12px 20px;
+      border-radius:999px;
+      font-size:14px;
+      font-weight:700;
+      opacity:0;
+      transition:0.22s;
+      z-index:9999;
+      max-width:92vw;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      pointer-events:none;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      letter-spacing:1px;
+    }
+    #toast.show{ opacity:1; top: calc(var(--safeTop) + 22px); }
+
+    .header{
+      height:78px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      background:linear-gradient(to bottom, 
+        rgba(0,0,0,0.95), 
+        rgba(0,0,0,0.85),
+        transparent);
+      border-bottom:2px solid rgba(255,255,255,0.12);
+      z-index:40;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3);
+      backdrop-filter:blur(8px);
+    }
+    .header::after{
+      content:"";
+      position:absolute;
+      bottom:0;left:0;right:0;
+      height:1px;
+      background:linear-gradient(90deg, 
+        transparent, 
+        rgba(255,255,255,0.1), 
+        transparent);
+    }
+    .logo{
+      position:absolute;
+      left:var(--safeLeft);
+      top:50%;
+      transform:translateY(-50%);
+      font-weight:1000;
+      letter-spacing:4px;
+      font-size:var(--fsLogo);
+      background:linear-gradient(to bottom, #e0eafc 0%, #cfdef3 100%);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+    .title{
+      font-weight:1000;
+      letter-spacing:6px;
+      font-size:var(--fsTitle);
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .title .title-text{
+      background: linear-gradient(
+        90deg, 
+        #4d3714 0%,
+        #bf953f 25%,
+        #fcf6ba 50%,
+        #bf953f 75%,
+        #4d3714 100%
+      );
+      background-size: 200% auto;
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      filter: drop-shadow(0 3px 10px rgba(191, 149, 63, 0.4));
+      animation: goldSweep 3.5s linear infinite;
+    }
+    .title .emoji{
+      -webkit-text-fill-color:initial;
+      filter:none;
+      animation:none;
+    }
+    .logo{
+      font-weight:bold;
+      font-size:24px;
+      letter-spacing:4px;
+      background: linear-gradient(
+        90deg, 
+        #4d3714 0%,
+        #bf953f 25%,
+        #fcf6ba 50%,
+        #bf953f 75%,
+        #4d3714 100%
+      );
+      background-size: 200% auto;
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      filter: drop-shadow(0 2px 8px rgba(191, 149, 63, 0.4));
+      animation: goldSweep 3.5s linear infinite;
+    }
+    @keyframes goldSweep {
+      0% { background-position: -100% center; }
+      100% { background-position: 100% center; }
+    }
+
+    .fixed-panel{
+      position:fixed;
+      left:var(--safeLeft);
+      top:var(--safeTop);
+      width:var(--ctlW);
+      background:linear-gradient(145deg, 
+        rgba(12,12,18,0.95), 
+        rgba(8,8,15,0.98),
+        rgba(15,15,22,0.95));
+      border:2px solid rgba(255,255,255,0.18);
+      border-radius:20px;
+      box-shadow:0 16px 48px rgba(0,0,0,0.6),
+                 0 8px 24px rgba(0,0,0,0.4),
+                 inset 0 2px 8px rgba(255,255,255,0.1),
+                 inset 0 -2px 8px rgba(0,0,0,0.3);
+      backdrop-filter: blur(12px);
+      z-index:80;
+      padding:16px 16px 14px 16px;
+      position:relative;
+    }
+    .fixed-panel::before{
+      content:"";
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      background:linear-gradient(135deg, 
+        rgba(255,255,255,0.08) 0%, 
+        transparent 50%);
+      border-radius:20px;
+      pointer-events:none;
+    }
+    .fixed-panel .ptitle{
+      font-size:16px;
+      color:rgba(255,255,255,0.8);
+      letter-spacing:2px;
+      font-weight:900;
+      margin-bottom:12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    
+    /* 最小化按钮 */
+    .panel-toggle{
+      width:28px;
+      height:28px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.3);
+      background:rgba(255,255,255,0.1);
+      color:rgba(255,255,255,0.8);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      transition:all 0.3s;
+      flex-shrink:0;
+    }
+    .panel-toggle:hover{
+      background:rgba(255,255,255,0.2);
+      border-color:rgba(255,255,255,0.5);
+    }
+    /* 现场控制右侧：与 + 同尺寸的隐藏快捷按钮 */
+    .ptitle-actions{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-left:auto;
+    }
+    .ptitle-actions .panel-toggle{
+      opacity:0.45;
+      transition:opacity 0.25s, background 0.3s, border-color 0.3s;
+    }
+    .ptitle:hover .ptitle-actions .panel-toggle,
+    .ptitle-actions .panel-toggle:hover{
+      opacity:1;
+    }
+    
+    /* 面板收起状态 */
+    #controlPanel.minimized{
+      width:auto !important;
+      min-width:220px;
+      max-width:280px;
+      padding:12px 16px !important;
+    }
+    #controlPanel.minimized .panel-content{
+      display:none !important;
+    }
+    #controlPanel.minimized .rules-panel{
+      display:block !important;
+      margin-top:10px;
+    }
+    #controlPanel.minimized .stats{
+      display:block !important;
+      margin-top:10px;
+    }
+    #controlPanel.minimized .rules-title{
+      font-size:16px !important;
+    }
+    #controlPanel.minimized .rules-item{
+      font-size:15px !important;
+    }
+    #controlPanel.minimized .rule-text{
+      font-size:15px !important;
+    }
+    #controlPanel.minimized .rules-notice{
+      font-size:13px !important;
+    }
+    #controlPanel.minimized .ptitle{
+      margin-bottom:0;
+    }
+    #controlPanel.minimized .ptitle>span:nth-child(2){
+      display:none;
+    }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row.space{ justify-content:space-between; }
+    .select{
+      flex:1 1 200px;
+      background:linear-gradient(145deg, 
+        rgba(0,0,0,0.5), 
+        rgba(10,10,20,0.6));
+      border:2px solid rgba(255,255,255,0.2);
+      color:#fff;
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:var(--fsBtn);
+      font-weight:600;
+      outline:none;
+      box-shadow:0 4px 12px rgba(0,0,0,0.3),
+                 inset 0 2px 4px rgba(0,0,0,0.2),
+                 inset 0 1px 2px rgba(255,255,255,0.1);
+      transition:all 0.3s;
+      backdrop-filter:blur(6px);
+    }
+    .select:hover{
+      border-color:rgba(255,255,255,0.3);
+      box-shadow:0 6px 16px rgba(0,0,0,0.4),
+                 inset 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .select:focus{
+      border-color:rgba(0,255,191,0.5);
+      box-shadow:0 0 20px rgba(0,255,191,0.2),
+                 0 6px 16px rgba(0,0,0,0.4);
+    }
+    .btn{
+      cursor:pointer;
+      border:2px solid rgba(255,255,255,0.2);
+      background:linear-gradient(145deg, 
+        rgba(255,255,255,0.08), 
+        rgba(255,255,255,0.04));
+      color:#fff;
+      border-radius:14px;
+      padding:10px 14px;
+      font-size:var(--fsBtn);
+      font-weight:700;
+      letter-spacing:0.8px;
+      transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space:nowrap;
+      box-shadow:0 4px 12px rgba(0,0,0,0.3),
+                 inset 0 1px 2px rgba(255,255,255,0.1);
+      backdrop-filter:blur(6px);
+      position:relative;
+      overflow:hidden;
+    }
+    .btn::before{
+      content:"";
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      background:linear-gradient(135deg, 
+        rgba(255,255,255,0.15) 0%, 
+        transparent 50%);
+      opacity:0;
+      transition:opacity 0.3s;
+    }
+    .btn:hover{ 
+      background:linear-gradient(145deg, 
+        rgba(255,255,255,0.15), 
+        rgba(255,255,255,0.08));
+      border-color:rgba(255,255,255,0.3);
+      transform:translateY(-2px);
+      box-shadow:0 6px 20px rgba(0,0,0,0.4),
+                 inset 0 2px 4px rgba(255,255,255,0.15);
+    }
+    .btn:hover::before{
+      opacity:1;
+    }
+    .btn.primary{ 
+      border-color:rgba(0,255,191,0.5); 
+      background:linear-gradient(145deg, 
+        rgba(0,255,191,0.15), 
+        rgba(0,255,191,0.08));
+      box-shadow:0 4px 16px rgba(0,255,191,0.2),
+                 inset 0 1px 2px rgba(255,255,255,0.15);
+    }
+    .btn.primary:hover{
+      border-color:rgba(0,255,191,0.7);
+      box-shadow:0 6px 24px rgba(0,255,191,0.3),
+                 inset 0 2px 4px rgba(255,255,255,0.2);
+    }
+    .btn.danger{ 
+      border-color:rgba(255,46,99,0.5);
+      background:linear-gradient(145deg, 
+        rgba(255,46,99,0.15), 
+        rgba(255,46,99,0.08));
+    }
+    .btn.ghost{ 
+      border-color:rgba(255,255,255,0.15);
+      background:rgba(255,255,255,0.03);
+    }
+
+    .status{
+      margin-top:12px;
+      background:linear-gradient(135deg, 
+        rgba(28,181,224,0.4) 0%, 
+        rgba(0,8,81,0.45) 50%,
+        rgba(28,181,224,0.35) 100%);
+      border:2px solid rgba(255,255,255,0.15);
+      border-radius:16px;
+      padding:12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      box-shadow:0 4px 16px rgba(28,181,224,0.2),
+                 inset 0 2px 6px rgba(255,255,255,0.1),
+                 inset 0 -2px 6px rgba(0,0,0,0.2);
+      backdrop-filter:blur(8px);
+    }
+    .status .st{
+      font-size:16px;
+      font-weight:900;
+      letter-spacing:1.5px;
+      color:#fff;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .status .hint{
+      font-size:13px;
+      color:rgba(255,255,255,0.75);
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(0,0,0,0.3);
+      border:1px solid rgba(255,255,255,0.12);
+      white-space:nowrap;
+      font-weight:700;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+
+    .draw-area{
+      margin-top:12px;
+      background:linear-gradient(145deg, 
+        rgba(8,8,15,0.9), 
+        rgba(5,5,12,0.95));
+      border:2px solid rgba(255,255,255,0.12);
+      border-radius:18px;
+      padding:12px;
+      box-shadow:inset 0 4px 16px rgba(0,0,0,0.4),
+                 inset 0 2px 8px rgba(255,255,255,0.05);
+      backdrop-filter:blur(8px);
+    }
+    #batchContainer{
+      display:grid;
+      gap:10px;
+      width:100%;
+    }
+    #batchContainer.mode-main{ grid-template-columns:1fr 1fr; }
+    #batchContainer.mode-joy{ grid-template-columns:1fr; }
+
+    .draw-slot{
+      min-height:140px;
+      border-radius:16px;
+      border:none;
+      background:rgba(15,15,25,0.7);
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      justify-content:flex-start;
+      padding:16px 20px;
+      gap:12px;
+      box-shadow:inset 0 1px 2px rgba(255,255,255,0.08);
+      overflow:hidden;
+      position:relative;
+      min-width:0;
+      transition:all 0.3s ease;
+      backdrop-filter:blur(8px);
+    }
+    .draw-slot:hover{
+      border-color:rgba(255,255,255,0.3);
+      box-shadow:0 16px 48px rgba(0,0,0,0.7),
+                 0 8px 24px rgba(0,0,0,0.5),
+                 inset 0 2px 10px rgba(255,255,255,0.18),
+                 inset 0 -2px 10px rgba(0,0,0,0.6);
+      transform:translateY(-2px);
+    }
+    .draw-slot.active-rainbow{ animation: rb 0.22s infinite; }
+    @keyframes rb{
+      0%{ border-color:var(--gold);} 25%{ border-color:var(--green);}
+      50%{ border-color:var(--red);} 75%{ border-color:var(--blue);} 100%{ border-color:var(--purple);}
+    }
+    .draw-left{ 
+      min-width:0; 
+      display:flex; 
+      flex-direction:column; 
+      gap:6px; 
+    }
+    .ds-name{
+      font-weight:1000;
+      font-size:19px;
+      letter-spacing:2px;
+      display:flex; 
+      align-items:center; 
+      gap:10px;
+      white-space:nowrap; 
+      overflow:hidden; 
+      text-overflow:ellipsis;
+      text-shadow:0 2px 10px rgba(0,0,0,0.5);
+      color:#fff;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .ds-dept{
+      font-size:14px;
+      color:rgba(255,255,255,0.75);
+      white-space:nowrap; 
+      overflow:hidden; 
+      text-overflow:ellipsis;
+      display:flex; 
+      align-items:center; 
+      gap:10px;
+      font-weight:700;
+      text-shadow:0 1px 5px rgba(0,0,0,0.4);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .ds-result{
+      width:100%;
+      border-radius:12px;
+      padding:18px 22px;
+      border:none;
+      background:rgba(20,20,30,0.6);
+      font-weight:600;
+      font-size:17px;
+      letter-spacing:1px;
+      color:rgba(255,255,255,0.9);
+      text-align:center;
+      white-space:normal;
+      word-wrap:break-word;
+      word-break:break-all;
+      overflow-wrap:break-word;
+      transition:all 0.3s ease;
+      position:relative;
+      box-shadow:none;
+      backdrop-filter:blur(6px);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      min-height:50px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .ds-result:hover{
+      background:rgba(25,25,35,0.7);
+    }
+    .ds-result.revealed{
+      border-color:currentColor;
+      border-width:3px;
+      box-shadow:0 0 35px currentColor,
+                 0 0 70px rgba(255,255,255,0.12),
+                 0 10px 32px rgba(0,0,0,0.7),
+                 inset 0 2px 10px rgba(255,255,255,0.25);
+      background:linear-gradient(145deg, 
+        rgba(0,0,0,0.9), 
+        rgba(30,30,45,0.95));
+      color:#fff;
+      transform:scale(1.04) translateY(-3px);
+      animation:revealPulse 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size:20px;
+      letter-spacing:2.5px;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    @keyframes revealPulse{
+      0%{ transform:scale(1) translateY(0); box-shadow:0 0 20px currentColor; }
+      30%{ transform:scale(1.08) translateY(-5px); box-shadow:0 0 50px currentColor, 0 0 80px currentColor; }
+      60%{ transform:scale(1.04) translateY(-4px); }
+      100%{ transform:scale(1.03) translateY(-3px); box-shadow:0 0 30px currentColor, 0 0 60px rgba(255,255,255,0.1); }
+    }
+
+    /* 抽奖结束时隐藏UI */
+    body.lottery-done .fixed-panel,
+    body.lottery-done .stats,
+    body.lottery-done .header{
+      display:none !important;
+    }
+    body.lottery-done .stage{
+      display:block !important;
+      grid-template-columns:none !important;
+      inset:0 !important;
+      padding:20px !important;
+    }
+    body.lottery-done .wall{
+      height:calc(100vh - 40px) !important;
+      width:100% !important;
+      display:flex !important;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      padding-top:20px;
+      overflow-y:auto;
+    }
+    body.lottery-done .wall-grid{
+      display:flex !important;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      width:100%;
+      max-width:1400px;
+    }
+    body.lottery-done .zone{
+      display:flex !important;
+      justify-content:center;
+      width:100%;
+    }
+    body.lottery-done .zone .wrap{
+      display:flex !important;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+    }
+    body.lottery-done .left-pad{
+      display:none !important;
+    }
+    /* 返回按钮 */
+    #btnBackToNormal{
+      position:fixed;
+      top:15px;
+      right:15px;
+      z-index:9999;
+      padding:8px 16px;
+      background:rgba(255,255,255,0.15);
+      border:1px solid rgba(255,255,255,0.3);
+      border-radius:8px;
+      color:#fff;
+      font-size:13px;
+      cursor:pointer;
+      backdrop-filter:blur(8px);
+      display:none;
+    }
+    #btnBackToNormal:hover{
+      background:rgba(255,255,255,0.25);
+    }
+    body.lottery-done #btnBackToNormal{
+      display:block;
+    }
+    /* 礼炮装饰（静态图标） */
+    .cannon-icon{
+      position:fixed;
+      bottom:20px;
+      font-size:60px;
+      z-index:9998;
+      display:none;
+      filter:drop-shadow(0 0 10px rgba(255,215,0,0.5));
+    }
+    .cannon-left{ left:30px; transform:rotate(-30deg); }
+    .cannon-right{ right:30px; transform:rotate(30deg) scaleX(-1); }
+    body.lottery-done .cannon-icon{
+      display:block;
+      animation:cannonBounce 1.5s ease-in-out infinite;
+    }
+    @keyframes cannonBounce{
+      0%,100%{ transform:translateY(0) rotate(-30deg); }
+      50%{ transform:translateY(-10px) rotate(-30deg); }
+    }
+    .cannon-right{
+      animation-name:cannonBounceRight;
+    }
+    @keyframes cannonBounceRight{
+      0%,100%{ transform:translateY(0) rotate(30deg) scaleX(-1); }
+      50%{ transform:translateY(-10px) rotate(30deg) scaleX(-1); }
+    }
+    
+    /* 抽奖规则面板 */
+    .rules-panel{
+      margin-top:12px;
+      padding:12px;
+      background:rgba(0,0,0,0.3);
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.1);
+    }
+    .rules-title{
+      font-size:15px;
+      font-weight:700;
+      color:rgba(255,255,255,0.9);
+      margin-bottom:12px;
+      text-align:center;
+      letter-spacing:0.5px;
+    }
+    .rules-item{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin:8px 0;
+      padding:4px 0;
+      font-size:13px;
+      color:rgba(255,255,255,0.9);
+      line-height:1.5;
+    }
+    .rule-dot{
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      flex-shrink:0;
+      box-shadow:0 0 6px currentColor;
+    }
+    .rule-text{
+      white-space:nowrap;
+      letter-spacing:0.3px;
+    }
+    .rules-notice{
+      margin-top:10px;
+      padding-top:8px;
+      border-top:1px solid rgba(255,255,255,0.1);
+      font-size:12px;
+      color:#ff6b6b;
+      line-height:1.6;
+      text-align:left;
+      word-break:keep-all;
+      word-spacing:0.1em;
+      padding-left:2px;
+      padding-right:2px;
+    }
+    
+    /* 1080P 标准模式：框整体变小，紧凑不重叠 */
+    body.mode-normal .wall{
+      padding:52px 12px 16px 12px;
+    }
+    body.mode-normal .wall-grid{
+      gap:20px;
+    }
+    body.mode-normal .zone .wrap{
+      gap:10px;
+      padding:2px 0;
+    }
+    body.mode-normal .zone#zoneGrand{ min-height:160px; padding-top:8px; overflow:visible; }
+    body.mode-normal .zone#zoneFirst{ min-height:100px; }
+    body.mode-normal .zone#zoneSecond{ min-height:108px; margin-bottom:4px; }
+    body.mode-normal .zone#zoneThird{ min-height:105px; margin-bottom:4px; }
+    body.mode-normal .zone#zoneJoy{ min-height:128px; }
+    /* 特等奖 - 缩小，皇冠留足顶部空间 */
+    body.mode-normal .slot.p0{
+      width:240px;
+      min-height:130px;
+      max-width:240px;
+      margin-top:8px;
+    }
+    body.mode-normal .slot.p0 .content{ padding:10px 8px; gap:4px; }
+    body.mode-normal .slot.p0 .c-level{ font-size:11px; padding:2px 8px; }
+    body.mode-normal .slot.p0 .c-name{ font-size:18px; }
+    body.mode-normal .slot.p0 .c-dept{ font-size:11px; }
+    body.mode-normal .slot.p0 .c-item{ font-size:10px; }
+    body.mode-normal .slot.p0.filled .crown{ font-size:34px; top:-38px; }
+    /* 一等奖 - 框略加大，奖品名可换行 */
+    body.mode-normal .slot.p1{
+      width:calc((100% - 40px) / 5);
+      min-width:108px;
+      max-width:158px;
+      min-height:82px;
+      aspect-ratio:auto;
+    }
+    body.mode-normal .slot.p1 .content{ padding:6px 5px; gap:3px; }
+    body.mode-normal .slot.p1 .c-level{ font-size:8px; padding:1px 4px; }
+    body.mode-normal .slot.p1 .c-name{ font-size:13px; }
+    body.mode-normal .slot.p1 .c-dept{ font-size:9px; }
+    body.mode-normal .slot.p1 .c-item{
+      font-size:8px;
+      white-space:normal;
+      word-break:break-all;
+      line-height:1.25;
+      text-align:center;
+    }
+    /* 二等奖 */
+    body.mode-normal .slot.p2{
+      width:calc((100% - 40px) / 5);
+      min-width:100px;
+      max-width:145px;
+      min-height:70px;
+      aspect-ratio:3/2;
+    }
+    body.mode-normal .slot.p2 .content{ padding:5px 4px; gap:2px; }
+    body.mode-normal .slot.p2 .c-level{ font-size:8px; padding:1px 4px; }
+    body.mode-normal .slot.p2 .c-name{ font-size:13px; }
+    body.mode-normal .slot.p2 .c-dept{ font-size:9px; }
+    body.mode-normal .slot.p2 .c-item{ font-size:9px; }
+    /* 三等奖 - 每排6个，框变小 */
+    body.mode-normal .slot.p3{
+      width:calc((100% - 50px) / 6);
+      min-width:95px;
+      max-width:125px;
+      min-height:62px;
+      aspect-ratio:3/2;
+    }
+    body.mode-normal .slot.p3 .content{ padding:4px 3px; gap:2px; }
+    body.mode-normal .slot.p3 .c-level{ font-size:7px; padding:1px 3px; }
+    body.mode-normal .slot.p3 .c-name{ font-size:12px; }
+    body.mode-normal .slot.p3 .c-dept{ font-size:9px; }
+    body.mode-normal .slot.p3 .c-item{ font-size:8px; }
+    /* 喜乐同行 - 每排7个，框变小 */
+    body.mode-normal .slot.p4{
+      width:calc((100% - 60px) / 7);
+      min-width:85px;
+      max-width:115px;
+      min-height:54px;
+      aspect-ratio:3/2;
+    }
+    body.mode-normal .slot.p4 .content{ padding:3px 2px; gap:1px; }
+    body.mode-normal .slot.p4 .c-level{ font-size:6px; padding:1px 2px; }
+    body.mode-normal .slot.p4 .c-name{ font-size:11px; }
+    body.mode-normal .slot.p4 .c-dept{ font-size:8px; }
+    body.mode-normal .slot.p4 .c-item{ font-size:7px; }
+    
+    /* 大屏投影模式 (1536×768 / 6米*3米屏幕) */
+    /* 面板：字体放大 */
+    body.mode-bigscreen .fixed-panel{ font-size:20px !important; }
+    body.mode-bigscreen .fixed-panel .panel-title{ font-size:22px !important; }
+    body.mode-bigscreen .fixed-panel .btn{ font-size:20px !important; padding:10px 16px !important; }
+    body.mode-bigscreen .fixed-panel select{ font-size:18px !important; padding:6px !important; }
+    body.mode-bigscreen .fixed-panel label{ font-size:18px !important; }
+    body.mode-bigscreen .stats .line{ font-size:16px !important; }
+    body.mode-bigscreen .stats .foot{ font-size:14px !important; }
+    body.mode-bigscreen .stats .dot{ width:8px !important; height:8px !important; }
+    body.mode-bigscreen .header{ height:36px !important; }
+    body.mode-bigscreen .header .title{ font-size:26px !important; }
+    body.mode-bigscreen .stage{ top:38px !important; padding-top:2px !important; }
+    /* 奖墙：使用zoom放大，保持清晰 */
+    body.mode-bigscreen .wall{ 
+      zoom:1.25; 
+      padding-top:0 !important; 
+      margin-top:-15px !important; 
+    }
+    body.mode-bigscreen .wall-grid{ gap:2px !important; }
+    body.mode-bigscreen .zone{ min-height:auto !important; padding:1px 0 !important; }
+    body.mode-bigscreen .zone .wrap{ gap:3px !important; }
+    body.mode-bigscreen .ztitle{ font-size:12px !important; margin-bottom:2px !important; display:none !important; }
+    /* 特等奖框 */
+    body.mode-bigscreen .slot.p0{ width:200px !important; min-height:100px !important; max-width:200px !important; margin-top:20px !important; }
+    body.mode-bigscreen .slot.p0 .content{ padding:8px 6px !important; gap:3px !important; }
+    body.mode-bigscreen .slot.p0 .c-name{ font-size:18px !important; }
+    body.mode-bigscreen .slot.p0 .c-level{ font-size:10px !important; }
+    body.mode-bigscreen .slot.p0 .c-dept{ font-size:10px !important; }
+    body.mode-bigscreen .slot.p0 .c-item{ font-size:9px !important; }
+    body.mode-bigscreen .crown{ font-size:45px !important; top:-18px !important; }
+    body.mode-bigscreen .zone#zoneGrand{ min-height:110px !important; padding-top:15px !important; }
+    /* 抽奖弹窗放大 */
+    body.mode-bigscreen .prizeImageCard{ transform:scale(1.2); }
+    body.mode-bigscreen .prizeImageTitle{ font-size:32px !important; }
+    body.mode-bigscreen .prizeImageName{ font-size:28px !important; }
+    body.mode-bigscreen .itemName{ font-size:20px !important; }
+    body.mode-bigscreen .candidateName{ font-size:24px !important; }
+    body.mode-bigscreen .prizeImageHint span{ font-size:24px !important; }
+    
+    .stats{
+      width:100%;
+      margin-top:12px;
+      padding:12px;
+      background:rgba(0,0,0,0.3);
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.1);
+      box-sizing:border-box;
+    }
+    .stats .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:3px 0;
+      font-size:10px;
+      color:rgba(255,255,255,0.9);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .stats .line{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:2px 4px;
+      border-radius:6px;
+      background:linear-gradient(135deg, 
+        rgba(255,255,255,0.06), 
+        rgba(255,255,255,0.02));
+      border:1px solid rgba(255,255,255,0.1);
+      min-width:auto;
+      box-shadow:inset 0 2px 4px rgba(0,0,0,0.2),
+                 inset 0 1px 2px rgba(255,255,255,0.05);
+      transition:all 0.3s;
+    }
+    .stats .line:hover{
+      background:linear-gradient(135deg, 
+        rgba(255,255,255,0.1), 
+        rgba(255,255,255,0.04));
+      border-color:rgba(255,255,255,0.15);
+      transform:translateX(2px);
+    }
+    .stats .line .stats-name{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .dot{ width:5px; height:5px; border-radius:50%; box-shadow:0 0 5px currentColor; flex-shrink:0; }
+    .stats .foot{
+      margin-top:12px;
+      padding-top:14px;
+      border-top:1px solid rgba(255,255,255,0.1);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .stats-foot-main{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:14px;
+    }
+    .stats-label{
+      color:rgba(255,255,255,0.5);
+      font-size:12px;
+      letter-spacing:1px;
+    }
+    .stats-value{
+      color:#fff;
+      font-size:20px;
+      font-weight:800;
+      font-variant-numeric:tabular-nums;
+    }
+    .stats .foot .num-bold{
+      font-size:20px;
+      font-weight:800;
+      color:#fff;
+      margin-right:2px;
+    }
+    .stats .foot .stats-value small{
+      font-size:13px;
+      font-weight:400;
+      color:rgba(255,255,255,0.4);
+    }
+    .stats-track{
+      height:14px;
+      background:rgba(255,255,255,0.05);
+      border-radius:20px;
+      overflow:hidden;
+      position:relative;
+      box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);
+      margin-bottom:14px;
+    }
+    .stats-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #ff416c, #ff4b2b, #f9d423);
+      border-radius:20px;
+      position:relative;
+      transition:width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow:0 0 20px rgba(255,75,43,0.5);
+    }
+    .stats-fill::after{
+      content:"";
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      background:linear-gradient(
+        90deg,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.4) 50%,
+        rgba(255,255,255,0) 100%
+      );
+      background-size:200% 100%;
+      animation:statsShine 2s infinite linear;
+      border-radius:20px;
+      pointer-events:none;
+    }
+    @keyframes statsShine{
+      from{ background-position:200% 0; }
+      to{ background-position:-200% 0; }
+    }
+    .stats-foot-sub{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:rgba(255,255,255,0.5);
+      font-size:12px;
+    }
+    .stats-foot-dot{
+      width:6px;
+      height:6px;
+      background:#b294ff;
+      border-radius:50%;
+      box-shadow:0 0 10px #b294ff;
+      flex-shrink:0;
+    }
+    .stats .foot .count-light{
+      color:#b294ff;
+      font-weight:700;
+      margin-left:4px;
+    }
+
+    .stage{
+      position:fixed;
+      inset:78px 0 0 0;
+      padding:14px 18px;
+      display:grid;
+      grid-template-columns: var(--ctlW) 1fr;
+      gap:16px;
+      z-index:10;
+    }
+    .stage .left-pad{ width:var(--ctlW); }
+    .wall{
+      position:relative;
+      height:calc(100vh - 78px - 28px);
+      margin-top:var(--wallPadTop);
+      border-radius:0;
+      border:none;
+      background:transparent;
+      overflow-y:auto;
+      overflow-x:hidden;
+      padding:10px 0;
+      box-shadow:none;
+      box-sizing:border-box;
+    }
+
+    .wall-grid{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+      padding:0;
+      align-items:center;
+      justify-content:flex-start;
+    }
+    .zone{
+      border-radius:16px;
+      border:none;
+      background:transparent;
+      overflow:visible;
+      padding:0;
+      position:relative;
+      box-shadow:none;
+      backdrop-filter:none;
+      width:auto;
+      min-height:140px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+    .zone#zoneGrand{
+      min-height:250px;
+      width:auto;
+      padding-top:15px;
+    }
+    .zone#zoneFirst{
+      min-height:130px;
+      width:auto;
+    }
+    .zone#zoneSecond{
+      min-height:130px;
+      width:auto;
+    }
+    .zone#zoneThird{
+      min-height:115px;
+      width:auto;
+    }
+    .zone#zoneJoy{
+      min-height:200px;
+      width:auto;
+    }
+
+    .zone .ztitle{
+      display:none;
+    }
+    .zone .wrap{
+      height:100%;
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      padding:0;
+      width:100%;
+      box-sizing:border-box;
+      align-content:flex-start;
+    }
+    /* 欧皇特等奖：1个，居中，在顶部 */
+    .zone#zoneGrand .wrap{
+      justify-content:center;
+      align-items:flex-start;
+    }
+    /* 一等奖：5个，金字塔第二层，居中 */
+    .zone#zoneFirst .wrap{
+      justify-content:center;
+    }
+    /* 二等奖：9个，金字塔第三层，居中 */
+    .zone#zoneSecond .wrap{
+      justify-content:center;
+    }
+    /* 三等奖：14个，金字塔第四层，居中 */
+    .zone#zoneThird .wrap{
+      justify-content:center;
+    }
+    /* 喜乐同行：底部，居中 */
+    .zone#zoneJoy .wrap{
+      justify-content:center;
+    }
+
+    .slot{
+      width:calc((100% - 64px) / 5);
+      min-width:160px;
+      max-width:200px;
+      aspect-ratio:3/2;
+      min-height:120px;
+      border-radius:12px;
+      border:none;
+      background:rgba(20,20,30,0.4);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:visible;
+      transition:all 0.3s ease;
+      box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);
+      margin:0;
+      flex-shrink:0;
+      backdrop-filter:blur(8px);
+      box-sizing:border-box;
+    }
+    .slot:hover{
+      background:rgba(30,30,40,0.5);
+    }
+    /* 所有奖项卡片公共样式 - 深色半透明底 + 毛玻璃 */
+    .slot.filled{
+      background:rgba(30, 30, 30, 0.6);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+      border-radius:12px;
+      position:relative;
+      overflow:visible;
+      transform:none;
+    }
+    .slot.filled .c-level,
+    .slot.filled .c-name,
+    .slot.filled .c-dept,
+    .slot.filled .c-item{ color:#FFFFFF; }
+
+    /* 特等奖 - 红色渐变边框 */
+    .slot.p0.filled{
+      border:2px solid transparent;
+      border-image:linear-gradient(135deg, #FF512F, #DD2476) 1;
+      box-shadow:0 0 20px rgba(221, 36, 118, 0.4),
+                 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .slot.p0.filled .c-level{ color:#FF512F; }
+    
+    /* 一等奖 - 香槟金渐变边框 */
+    .slot.p1.filled{
+      border:2px solid transparent;
+      border-image:linear-gradient(135deg, #F09819, #EDDE5D) 1;
+      box-shadow:0 0 20px rgba(240, 152, 25, 0.3),
+                 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .slot.p1.filled .c-level{ color:#F09819; }
+    
+    /* 二等奖 - 钛银蓝渐变边框 */
+    .slot.p2.filled{
+      border:2px solid transparent;
+      border-image:linear-gradient(135deg, #E0EAFC, #CFDEF3) 1;
+      box-shadow:0 0 20px rgba(207, 222, 243, 0.3),
+                 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .slot.p2.filled .c-level{ color:#E0EAFC; }
+    
+    /* 三等奖 - 深沉古铜渐变边框 */
+    .slot.p3.filled{
+      border:2px solid transparent;
+      border-image:linear-gradient(135deg, #BF953F, #A57C5B, #8B4513) 1;
+      box-shadow:0 0 20px rgba(191, 149, 63, 0.35),
+                 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .slot.p3.filled .c-level{ color:#BF953F; }
+    
+    /* 喜乐同行 - 梦幻紫渐变边框 */
+    .slot.p4.filled{
+      border:2px solid transparent;
+      border-image:linear-gradient(135deg, #b294ff, #57e6e6) 1;
+      box-shadow:0 0 20px rgba(178, 148, 255, 0.3),
+                 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .slot.p4.filled .c-level{ color:#b294ff; }
+
+    /* 基于 1920x1080 设计 */
+    .slot.p0{ 
+      width:320px;
+      aspect-ratio:auto;
+      min-height:180px;
+      max-width:320px;
+    }
+    .slot.p0 .content{
+      padding:15px 12px;
+      gap:6px;
+    }
+    .slot.p0 .c-level{ font-size:13px; padding:3px 10px; }
+    .slot.p0 .c-name{ font-size:22px; }
+    .slot.p0 .c-dept{ font-size:13px; }
+    .slot.p0 .c-item{ font-size:12px; }
+    .slot.p1{ 
+      width:calc((100% - 64px) / 5);
+      min-width:160px;
+      max-width:190px;
+      aspect-ratio:3/2;
+      min-height:110px;
+    }
+    .slot.p2{ 
+      width:calc((100% - 64px) / 5);
+      min-width:160px;
+      max-width:190px;
+      aspect-ratio:3/2;
+      min-height:110px;
+    }
+    .slot.p3{ 
+      width:calc((100% - 96px) / 7);
+      min-width:130px;
+      max-width:160px;
+      aspect-ratio:3/2;
+      min-height:95px;
+    }
+    .slot.p4{ 
+      width:calc((100% - 128px) / 8);
+      min-width:110px;
+      max-width:140px;
+      aspect-ratio:3/2;
+      min-height:85px;
+    }
+
+    .crown{
+      position:absolute;
+      top:-60px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:56px;
+      filter:drop-shadow(0 0 20px rgba(255,215,0,0.8));
+      display:none;
+      z-index:10;
+      pointer-events:none;
+      line-height:1;
+    }
+    .slot.p0.filled .crown{ display:block; }
+    .slot.p0{
+      margin-top:50px;
+    }
+
+    .content{
+      width:100%;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      padding:8px 6px;
+      opacity:0;
+      transition:opacity .3s ease-in-out;
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:2;
+      box-sizing:border-box;
+      overflow:visible;
+    }
+    /* 三等奖卡片文字 */
+    .slot.p3 .content{
+      padding:8px 6px;
+      gap:3px;
+    }
+    .slot.p3 .c-level{ font-size:9px; }
+    .slot.p3 .c-name{ font-size:16px; }
+    .slot.p3 .c-dept{ font-size:11px; }
+    .slot.p3 .c-item{ font-size:10px; }
+    
+    /* 喜乐同行卡片文字 */
+    .slot.p4 .content{
+      padding:6px 5px;
+      gap:2px;
+    }
+    .slot.p4 .c-level{ font-size:8px; }
+    .slot.p4 .c-name{ font-size:14px; }
+    .slot.p4 .c-dept{ font-size:10px; }
+    .slot.p4 .c-item{ font-size:9px; }
+    .slot.filled .content{ 
+      opacity:1; 
+      animation:contentFadeIn 0.4s ease-out;
+    }
+    @keyframes contentFadeIn{
+      0%{ opacity:0; transform:translateY(8px); }
+      100%{ opacity:1; transform:translateY(0); }
+    }
+    .placeholder{
+      font-size:15px;
+      font-weight:900;
+      color:rgba(255,255,255,0.25);
+      letter-spacing:4px;
+      text-shadow:0 2px 10px rgba(0,0,0,0.6);
+      opacity:0.7;
+      transition:opacity 0.3s;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      text-align:center;
+    }
+    .slot:hover .placeholder{
+      opacity:0.8;
+    }
+    .slot.filled .placeholder{ display:none; }
+
+    .c-level{
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:1px;
+      color:rgba(255,255,255,0.9);
+      text-align:center;
+      padding:2px 6px;
+      border-radius:4px;
+      background:rgba(255,255,255,0.12);
+      backdrop-filter:blur(4px);
+      margin-bottom:1px;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      text-shadow:0 1px 2px rgba(0,0,0,0.5);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      flex-shrink:0;
+    }
+    .c-name{
+      font-family: "Microsoft YaHei UI Bold", "Microsoft YaHei", "SimHei", sans-serif;
+      font-weight:900;
+      font-size:18px;
+      letter-spacing:2px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+      color:#ffffff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      width:100%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-shadow:0 2px 4px rgba(0,0,0,0.7);
+      color:#fff;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      text-align:center;
+      margin-top:1px;
+      flex-shrink:0;
+    }
+    .c-dept{
+      font-size:12px;
+      color:rgba(255,255,255,0.95);
+      width:100%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-shadow:0 1px 3px rgba(0,0,0,0.6);
+      font-weight:600;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      text-align:center;
+      margin-top:1px;
+      flex-shrink:0;
+    }
+    .c-item{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:6px;
+      background:rgba(255,255,255,0.1);
+      border:none;
+      width:auto;
+      max-width:90%;
+      white-space:normal;
+      word-wrap:break-word;
+      word-break:break-all;
+      overflow-wrap:break-word;
+      box-shadow:inset 0 1px 2px rgba(255,255,255,0.15);
+      font-weight:600;
+      letter-spacing:0.3px;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+      text-align:center;
+      color:rgba(255,255,255,0.95);
+      backdrop-filter:blur(4px);
+      line-height:1.2;
+      text-shadow:0 1px 2px rgba(0,0,0,0.5);
+      margin-top:2px;
+      flex-shrink:1;
+      min-height:0;
+    }
+
+    .gdot{
+      width:10px;height:10px;border-radius:50%;
+      display:inline-block; position:relative;
+      border:none;
+      box-shadow:none;
+      flex:0 0 10px;
+    }
+    .gdot::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:60%;
+      height:60%;
+      border-radius:50%;
+      background:rgba(255,255,255,0.4);
+    }
+    .gdot-a{ background:#ff5c7a; }
+    .gdot-b{ background:#b07cff; }
+    .gdot-c{ background:#85ffb0; }
+
+    .shake{ animation:shakeIt 420ms ease-in-out; }
+    @keyframes shakeIt{
+      0%{ transform:translateY(-1px) translateX(0); }
+      20%{ transform:translateY(-1px) translateX(-6px); }
+      40%{ transform:translateY(-1px) translateX(6px); }
+      60%{ transform:translateY(-1px) translateX(-4px); }
+      80%{ transform:translateY(-1px) translateX(4px); }
+      100%{ transform:translateY(-1px) translateX(0); }
+    }
+    
+    /* 特等奖红框闪烁效果（优化版） */
+    .grand-prize-glow{
+      animation: grandPrizeFlash 1s ease-in-out infinite;
+      will-change: box-shadow, border-color;
+    }
+    @keyframes grandPrizeFlash{
+      0%, 100%{ 
+        border-color: #FF512F;
+        box-shadow: 0 0 40px rgba(255,81,47,0.4), 0 20px 60px rgba(0,0,0,0.6);
+      }
+      50%{ 
+        border-color: #FFD700;
+        box-shadow: 0 0 60px rgba(255,215,0,0.5), 0 0 80px rgba(255,81,47,0.3), 0 20px 60px rgba(0,0,0,0.6);
+      }
+    }
+    
+    /* 花落效果容器 */
+    #confettiContainer{
+      position:fixed;
+      inset:0;
+      z-index:9998;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    .confetti{
+      position:absolute;
+      top:0;
+      width:10px;
+      height:10px;
+      opacity:0.85;
+      will-change:transform,opacity;
+      animation:confettiFall linear forwards;
+      transform:translateZ(0); /* GPU加速 */
+    }
+    @keyframes confettiFall{
+      0%{ transform:translateY(-20px) rotate(0deg) translateZ(0); opacity:1; }
+      100%{ transform:translateY(100vh) rotate(540deg) translateZ(0); opacity:0; }
+    }
+
+    .particle{
+      position:absolute;
+      width:6px; height:6px;
+      border-radius:50%;
+      pointer-events:none;
+      opacity:0.95;
+      filter: drop-shadow(0 0 10px rgba(255,255,255,0.15));
+      animation: pop 650ms ease-out forwards;
+    }
+    @keyframes pop{
+      0%{ transform:translate(0,0) scale(1); opacity:1; }
+      100%{ transform:translate(var(--dx), var(--dy)) scale(0.2); opacity:0; }
+    }
+
+    #flashOverlay{
+      position:fixed; inset:0; z-index:9998;
+      display:none; align-items:center; justify-content:center;
+      background:radial-gradient(circle at 50% 35%, rgba(255,215,0,0.35), rgba(0,0,0,0.92) 60%);
+      backdrop-filter: blur(2px);
+    }
+    #flashOverlay.show{ display:flex; animation:flashInOut 1.05s ease-in-out forwards; }
+    @keyframes flashInOut{
+      0%{ opacity:0; transform:scale(1.02); }
+      15%{ opacity:1; transform:scale(1.00); }
+      85%{ opacity:1; }
+      100%{ opacity:0; transform:scale(0.99); }
+    }
+    .flashCard{
+      text-align:center;
+      padding:26px 34px;
+      border-radius:22px;
+      border:1px solid rgba(255,215,0,0.35);
+      background:rgba(10,10,18,0.65);
+      box-shadow:0 0 35px rgba(255,215,0,0.18), 0 20px 60px rgba(0,0,0,0.55);
+    }
+    .flashTitle{
+      font-size:18px; letter-spacing:5px; color:rgba(255,215,0,0.9); font-weight:1000;
+      margin-bottom:12px;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .flashName{
+      font-size:72px; font-weight:1000; letter-spacing:8px;
+      background:linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      line-height:1.05;
+      text-shadow:0 0 22px rgba(255,215,0,0.15);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .flashSub{
+      margin-top:12px;
+      font-size:16px;
+      color:rgba(255,255,255,0.8);
+      letter-spacing:2px;
+      font-weight:700;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+
+    /* 奖品图片弹窗样式 */
+    #prizeImageOverlay{
+      position:fixed; inset:0; z-index:9997;
+      display:none; align-items:center; justify-content:center;
+      background:radial-gradient(circle at 50% 40%, rgba(0,242,255,0.15), rgba(0,0,0,0.95) 70%);
+      backdrop-filter: blur(8px);
+    }
+    #prizeImageOverlay.show{ 
+      display:flex; 
+      animation:prizeImageFadeIn 0.5s ease-out forwards; 
+    }
+    @keyframes prizeImageFadeIn{
+      0%{ opacity:0; transform:scale(0.9); }
+      100%{ opacity:1; transform:scale(1); }
+    }
+    #prizeImageOverlay.hide{
+      animation:prizeImageFadeOut 0.4s ease-in forwards;
+    }
+    @keyframes prizeImageFadeOut{
+      0%{ opacity:1; transform:scale(1); }
+      100%{ opacity:0; transform:scale(0.95); }
+    }
+    .prizeImageCard{
+      text-align:center;
+      padding:30px 40px;
+      border-radius:24px;
+      border:2px solid #FFD700;
+      background:linear-gradient(145deg, 
+        rgba(15,15,25,0.95), 
+        rgba(10,10,20,0.98));
+      box-shadow:0 0 60px rgba(255,215,0,0.35), 
+                 0 25px 80px rgba(0,0,0,0.7),
+                 inset 0 2px 10px rgba(255,255,255,0.1);
+      max-width:90vw;
+      max-height:90vh;
+    }
+    .prizeImageTitle{
+      font-size:24px; 
+      letter-spacing:4px; 
+      color:#FFD700; 
+      font-weight:900;
+      margin-bottom:20px;
+      text-shadow:0 0 20px rgba(255,215,0,0.5);
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .prizeImageWrap{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:15px;
+      padding:15px;
+      border-radius:16px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.1);
+      box-shadow:inset 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .prizeImageItem{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      width:180px; /* 固定宽度保证对齐 */
+    }
+    .prizeImageItem .imgWrap{
+      width:160px;
+      height:140px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-bottom:8px;
+    }
+    .prizeImageItem img{
+      max-width:160px;
+      max-height:140px;
+      width:auto;
+      height:auto;
+      border-radius:10px;
+      box-shadow:0 6px 20px rgba(0,0,0,0.5);
+      transition:transform 0.3s ease;
+    }
+    .prizeImageItem img:hover{
+      transform:scale(1.05);
+    }
+    .prizeImageItem .itemName{
+      font-size:12px;
+      font-weight:700;
+      color:rgba(255,255,255,0.9);
+      text-align:center;
+      width:160px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      margin-bottom:8px;
+    }
+    /* 所有奖项：图片下面的候选人显示框 */
+    .prizeImageItem .candidateName{
+      padding:10px 15px;
+      width:160px;
+      min-height:40px;
+      background:rgba(0,0,0,0.6);
+      border:2px solid currentColor;
+      border-radius:8px;
+      font-size:15px;
+      font-weight:800;
+      color:#fff;
+      text-align:center;
+      transition:all 0.15s ease;
+      box-shadow:0 0 15px rgba(255,255,255,0.2);
+      box-sizing:border-box;
+    }
+    .prizeImageItem .candidateName.rolling{
+      animation:candidatePulse 0.3s ease infinite;
+      color:#e0d0ff;
+    }
+    .prizeImageItem .candidateName.winner{
+      background:linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+      color:#fff;
+      font-size:16px;
+      animation:winnerGlow 0.8s ease infinite;
+    }
+    @keyframes candidatePulse{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.02); }
+    }
+    @keyframes winnerGlow{
+      0%,100%{ box-shadow:0 0 20px currentColor; }
+      50%{ box-shadow:0 0 35px currentColor; }
+    }
+    /* 单个奖品时使用大图 */
+    .prizeImageWrap.single-mode{
+      flex-wrap:nowrap;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem{
+      width:320px;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem .imgWrap{
+      width:300px;
+      height:260px;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem img{
+      max-width:300px;
+      max-height:260px;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem .itemName{
+      display:none;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem .candidateName{
+      width:280px;
+      font-size:20px;
+      padding:15px 20px;
+      min-height:50px;
+    }
+    .prizeImageWrap.single-mode .prizeImageItem .candidateName.winner{
+      font-size:24px;
+    }
+    .prizeImageName{
+      margin-top:20px;
+      font-size:28px;
+      font-weight:900;
+      letter-spacing:3px;
+      background:linear-gradient(135deg, #FDB931, #FFD700, #F0C24D);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+    .prizeImageHint{
+      margin-top:25px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      padding:14px 28px;
+      border-radius:16px;
+      background:linear-gradient(145deg, 
+        rgba(255,255,255,0.08), 
+        rgba(255,255,255,0.04));
+      border:2px solid currentColor;
+      box-shadow:0 0 25px currentColor,
+                 inset 0 2px 6px rgba(255,255,255,0.1);
+      animation:hintPulse 1.5s ease-in-out infinite;
+      cursor:pointer;
+    }
+    @keyframes hintPulse{
+      0%, 100%{ 
+        transform:scale(1); 
+        opacity:0.85; 
+      }
+      50%{ 
+        transform:scale(1.05); 
+        opacity:1; 
+      }
+    }
+    .prizeImageHint span{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:2px;
+      color:inherit;
+      font-family:'PingFang SC','Microsoft YaHei','SimHei',sans-serif;
+    }
+
+    /* ========== 响应式适配 ========== */
+    
+    /* 1536x768 专用优化 - 高度受限 */
+    @media (max-height: 800px) {
+      :root{
+        --ctlW: min(340px, 26vw);
+        --fsTitle: 24px;
+        --safeTop: 58px;
+        --safeLeft: 10px;
+        --safeRight: 10px;
+        --wallPadTop: 5px;
+      }
+      
+      /* 头部压缩 */
+      .header{ height:50px; }
+      .header .title{ font-size:22px; letter-spacing:3px; }
+      .header .logo{ font-size:16px; }
+      
+      /* 控制面板 - 保持可读性 */
+      .fixed-panel{ 
+        padding:8px; 
+        border-radius:12px;
+      }
+      .fixed-panel .ptitle{ font-size:12px; margin-bottom:6px; padding:6px; }
+      .fixed-panel .row{ gap:5px; margin-bottom:6px; }
+      .fixed-panel .btn{ padding:6px 10px; font-size:11px; }
+      .fixed-panel .select{ padding:6px 10px; font-size:11px; }
+      .fixed-panel .status{ padding:8px; margin:8px 0; }
+      .fixed-panel .status .st{ font-size:12px; }
+      .fixed-panel .status .hint{ font-size:9px; }
+      
+      /* 主抽奖区 - 保持正常大小 */
+      .draw-area{ 
+        margin-top:8px; 
+        padding:8px; 
+        border-radius:10px;
+      }
+      #batchContainer.mode-main{ gap:8px; }
+      #batchContainer.mode-main .draw-slot{ 
+        min-height:80px;
+        padding:10px 12px; 
+        border-radius:10px;
+      }
+      #batchContainer.mode-main .ds-name{ font-size:14px; }
+      #batchContainer.mode-main .ds-dept{ font-size:11px; display:block; }
+      #batchContainer.mode-main .ds-result{ font-size:18px; }
+      
+      /* 喜乐同行 - 5个框紧凑显示 */
+      #batchContainer.mode-joy{ 
+        display:flex;
+        flex-direction:column;
+        gap:4px;
+      }
+      #batchContainer.mode-joy .draw-slot{ 
+        min-height:48px;
+        height:52px;
+        padding:6px 10px; 
+        border-radius:8px;
+      }
+      #batchContainer.mode-joy .ds-name{ font-size:11px; }
+      #batchContainer.mode-joy .ds-dept{ font-size:9px; display:block; }
+      #batchContainer.mode-joy .ds-result{ font-size:14px; }
+      
+      /* 统计面板（与抽奖资格同宽，不改尺寸） */
+      .stats{ padding:12px; border-radius:10px; }
+      .stats .line{ font-size:9px; padding:2px 4px; }
+      .stats .foot{ padding-top:10px; margin-top:10px; }
+      .stats-label{ font-size:11px; }
+      .stats-value{ font-size:16px; }
+      .stats .foot .num-bold{ font-size:16px; }
+      .stats .foot .stats-value small{ font-size:11px; }
+      .stats-track{ height:10px; margin-bottom:10px; }
+      .stats-foot-sub{ font-size:11px; }
+      .stats .dot{ width:5px; height:5px; }
+      
+      /* 奖墙整体 */
+      .stage{ gap:10px; padding:8px 12px; }
+      .wall{ height:calc(100vh - 58px - 16px); padding:5px 0; }
+      .wall-grid{ gap:6px; }
+      .zone .wrap{ gap:6px; }
+      
+      /* 特等奖 */
+      .slot.p0{ 
+        width:200px; 
+        height:110px;
+        min-height:unset;
+        max-width:200px; 
+        margin-top:35px;
+        border-radius:10px;
+        aspect-ratio:unset;
+      }
+      .slot.p0 .content{ padding:10px 8px; gap:4px; }
+      .slot.p0 .c-level{ font-size:10px; padding:2px 8px; }
+      .slot.p0 .c-name{ font-size:16px; }
+      .slot.p0 .c-dept{ font-size:10px; }
+      .slot.p0 .c-item{ font-size:9px; }
+      .zone#zoneGrand{ min-height:160px; padding-top:10px; }
+      .crown{ top:-28px; font-size:28px; }
+      
+      /* 一等奖 - 5个一排 */
+      .slot.p1{ 
+        width:calc((100% - 28px) / 5);
+        height:68px;
+        min-height:unset;
+        min-width:95px; 
+        max-width:120px; 
+        border-radius:8px;
+        aspect-ratio:unset;
+      }
+      .zone#zoneFirst{ min-height:78px; }
+      
+      /* 二等奖 - 5个一排，2排 */
+      .slot.p2{ 
+        width:calc((100% - 28px) / 5);
+        height:65px;
+        min-height:unset;
+        min-width:95px; 
+        max-width:120px; 
+        border-radius:8px;
+        aspect-ratio:unset;
+      }
+      .zone#zoneSecond{ min-height:142px; }
+      
+      /* 三等奖 - 每排更多个以减少排数 */
+      .slot.p3{ 
+        width:calc((100% - 56px) / 8);
+        height:55px;
+        min-height:unset;
+        min-width:78px; 
+        max-width:98px; 
+        border-radius:6px;
+        aspect-ratio:unset;
+      }
+      .zone#zoneThird{ min-height:125px; }
+      
+      /* 喜乐同行 - 每排更多个 */
+      .slot.p4{ 
+        width:calc((100% - 63px) / 9);
+        height:48px;
+        min-height:unset;
+        min-width:68px; 
+        max-width:88px; 
+        border-radius:5px;
+        aspect-ratio:unset;
+      }
+      .zone#zoneJoy{ min-height:160px; }
+      
+      /* 卡片内容 - 保持可读性 */
+      .slot.filled{
+        overflow:hidden;
+      }
+      .slot.p0.filled{
+        overflow:visible; /* 特等奖保留皇冠显示 */
+      }
+      .content{ 
+        padding:5px 4px; 
+        gap:2px; 
+        overflow:hidden;
+        width:100%;
+        height:100%;
+      }
+      .c-level{ font-size:8px; padding:1px 4px; margin-bottom:1px; flex-shrink:0; display:block !important; }
+      .c-name{ 
+        font-size:11px; 
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        flex-shrink:0;
+        line-height:1.2;
+      }
+      .c-dept{ 
+        display:none; /* 隐藏部门以节省空间 */
+      }
+      .c-item{ 
+        font-size:7px; 
+        padding:1px 3px; 
+        border-radius:2px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-width:100%;
+        flex-shrink:0;
+        background:rgba(255,255,255,0.12);
+        display:block !important;
+        line-height:1.2;
+      }
+      
+      /* p0样式已在上方定义 */
+      
+      .slot.p1 .c-level, .slot.p2 .c-level{ font-size:8px; }
+      .slot.p1 .c-name, .slot.p2 .c-name{ font-size:11px; }
+      .slot.p1 .c-item, .slot.p2 .c-item{ font-size:7px; }
+      .slot.p1 .content, .slot.p2 .content{ padding:4px 3px; gap:2px; }
+      
+      .slot.p3 .c-level{ font-size:7px; padding:1px 3px; }
+      .slot.p3 .c-name{ font-size:10px; }
+      .slot.p3 .c-item{ font-size:6px; }
+      .slot.p3 .content{ padding:3px 2px; gap:1px; }
+      
+      .slot.p4 .c-level{ font-size:6px; padding:1px 2px; }
+      .slot.p4 .c-name{ font-size:9px; }
+      .slot.p4 .c-item{ font-size:5px; }
+      .slot.p4 .content{ padding:2px; gap:1px; }
+    }
+    
+    /* 更小屏幕 720p */
+    @media (max-height: 750px) {
+      .header{ height:45px; }
+      :root{ --safeTop: 52px; }
+      
+      /* 喜乐同行更紧凑 */
+      #batchContainer.mode-joy .draw-slot{ 
+        min-height:42px;
+        height:46px;
+      }
+      #batchContainer.mode-joy .ds-name{ font-size:10px; }
+      #batchContainer.mode-joy .ds-result{ font-size:12px; }
+      
+      .slot.p0{ width:160px; height:85px; margin-top:28px; }
+      .slot.p0 .content{ padding:8px 6px; gap:3px; }
+      .slot.p0 .c-level{ font-size:9px; }
+      .slot.p0 .c-name{ font-size:14px; }
+      .slot.p0 .c-dept{ font-size:9px; }
+      .slot.p0 .c-item{ font-size:8px; }
+      .slot.p1, .slot.p2{ height:55px; min-width:90px; max-width:105px; }
+      .slot.p3{ height:48px; min-width:75px; max-width:92px; }
+      .slot.p4{ height:42px; min-width:65px; max-width:80px; }
+      
+      .crown{ top:-22px; font-size:22px; }
+      .zone#zoneGrand{ min-height:125px; padding-top:5px; }
+      .zone#zoneFirst{ min-height:62px; }
+      .zone#zoneSecond{ min-height:120px; }
+      .zone#zoneThird{ min-height:105px; }
+      .zone#zoneJoy{ min-height:130px; }
+      
+      .wall-grid{ gap:5px; }
+      .zone .wrap{ gap:5px; }
+      
+      .c-name{ font-size:10px; }
+      .c-dept{ font-size:7px; }
+      .c-item{ font-size:6px; }
+      .c-level{ font-size:6px; }
+      
+      /* 保留等级标签和奖品名显示 */
+      .slot.p3 .c-level{ font-size:7px; }
+      .slot.p4 .c-level{ font-size:6px; }
+      .slot.p4 .c-name{ font-size:8px; }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="toast">提示信息</div>
+
+  <div id="flashOverlay">
+    <div class="flashCard">
+      <div class="flashTitle">👑 欧皇特等奖揭晓</div>
+      <div class="flashName" id="flashName">—</div>
+      <div class="flashSub" id="flashSub">—</div>
+    </div>
+  </div>
+
+  <!-- 奖品图片弹窗 -->
+  <div id="prizeImageOverlay">
+    <div class="prizeImageCard">
+      <div class="prizeImageTitle" id="prizeImageTitle">🎁 奖品揭晓</div>
+      <div class="prizeImageWrap single-mode" id="prizeImageWrap">
+        <!-- 动态生成奖品图片 -->
+      </div>
+      <div class="prizeImageName" id="prizeImageName">奖品名称</div>
+      <div class="prizeImageHint">
+        <span>开始抽奖</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="header">
+    <!-- 填入：左上角集团/公司名称 -->
+    <div class="logo">公司名称</div>
+    <!-- 填入：中间主标题，如「202X XX年会抽奖现场」 -->
+    <div class="title"><span class="emoji">🎉🎉</span><span class="title-text">年会抽奖现场</span><span class="emoji">🧧🧧</span></div>
+  </div>
+
+  <div class="fixed-panel" id="controlPanel">
+    <div class="ptitle">
+      <span>现场控制</span>
+      <span style="font-size:11px;color:rgba(255,255,255,0.55);">Space 一键推进</span>
+      <div class="ptitle-actions">
+        <button type="button" class="panel-toggle" id="btnFreezeShortcut" title="禁用空格">⏸</button>
+        <button type="button" class="panel-toggle" id="btnMuteShortcut" title="静音">🔊</button>
+        <button class="panel-toggle" id="btnPanelToggle" title="收起/展开" onclick="togglePanel()">−</button>
+      </div>
+    </div>
+
+    <div class="panel-content">
+    <div class="row">
+      <select class="select" id="levelSelect"></select>
+      <button class="btn ghost" id="btnNextDefault">默认顺序</button>
+      <button class="btn ghost" id="btnFreeze" style="margin-left:8px;" data-freeze="0">⏸ 禁用空格</button>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" style="flex:1;" id="btnDraw">开始 / 停止 / 揭晓</button>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button class="btn" id="btnCopy">复制</button>
+      <button class="btn danger" id="btnReset">重置</button>
+      <button class="btn" id="btnMute" style="margin-left:8px;">🔊 静音</button>
+    </div>
+    
+    <div class="row" style="margin-top:8px;">
+      <label style="font-size:10px;color:rgba(255,255,255,0.7);white-space:nowrap;">显示:</label>
+      <select id="presetSelect" style="flex:1;padding:4px 6px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.4);color:#fff;">
+        <option value="normal">标准 (1080p电脑)</option>
+        <option value="bigscreen">大屏投影 (1536×768/6米屏)</option>
+      </select>
+    </div>
+
+    <div class="status">
+      <div class="st" id="statusText">等待开始（Space 或 按按钮）</div>
+      <div class="hint">Space 推进</div>
+    </div>
+
+    <!-- draw-area 已删除，所有抽奖在图片弹窗中进行 -->
+    
+    </div><!-- end panel-content -->
+    
+    <!-- 抽奖规则说明（不随面板收起隐藏） -->
+    <div class="rules-panel">
+      <div class="rules-title">抽奖资格</div>
+      <div class="rules-item"><span class="rule-dot" style="background:#e74c3c;"></span><span class="rule-text">入职≥1年 可抽所有奖</span></div>
+      <div class="rules-item"><span class="rule-dot" style="background:#9b59b6;"></span><span class="rule-text">入职≥6月 可抽一二三等奖</span></div>
+      <div class="rules-item"><span class="rule-dot" style="background:#27ae60;"></span><span class="rule-text">入职＜6月 可抽二三等奖</span></div>
+      <div class="rules-notice">本抽奖严格遵守 Fisher-Yates 洗牌算法，符合规则员工均有机会中奖</div>
+    </div>
+
+    <!-- 剩余奖项（与抽奖资格同宽，最小化时一并显示） -->
+    <div class="stats" id="statsPanel">
+      <div class="grid" id="statsGrid"></div>
+      <div class="foot" id="statsFoot">
+        <div class="stats-foot-main">
+          <span class="stats-label">未中奖人数</span>
+          <span class="stats-value"><span class="num-bold" id="statsUnwon">0</span> <small>/ <span id="statsTotal">0</span></small></span>
+        </div>
+        <div class="stats-track">
+          <div class="stats-fill" id="statsBar"></div>
+        </div>
+        <div class="stats-foot-sub">
+          <span class="stats-foot-dot"></span>
+          <span>喜乐同行剩余 <span class="count-light" id="statsJoy">0</span> 人</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 返回按钮 -->
+  <button id="btnBackToNormal">← 返回</button>
+  
+  <!-- 礼炮装饰 -->
+  <div class="cannon-icon cannon-left">🎉</div>
+  <div class="cannon-icon cannon-right">🎉</div>
+
+  <div class="stage">
+    <div class="left-pad"></div>
+
+    <div class="wall">
+      <div class="wall-grid">
+        <div class="zone" id="zoneGrand">
+          <div class="ztitle">欧皇特等奖</div>
+          <div class="wrap" id="wrapGrand"></div>
+        </div>
+
+        <div class="zone" id="zoneFirst">
+          <div class="ztitle">一等奖</div>
+          <div class="wrap" id="wrapFirst"></div>
+        </div>
+
+        <div class="zone" id="zoneSecond">
+          <div class="ztitle">二等奖</div>
+          <div class="wrap" id="wrapSecond"></div>
+        </div>
+
+        <div class="zone" id="zoneThird">
+          <div class="ztitle">三等奖</div>
+          <div class="wrap" id="wrapThird"></div>
+        </div>
+
+        <div class="zone" id="zoneJoy">
+          <div class="ztitle">喜乐同行</div>
+          <div class="wrap" id="wrapJoy"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function showToast(msg){
+      const t=document.getElementById('toast');
+      t.innerText=msg;
+      t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'), 2400);
+    }
+    window.addEventListener('error', (e) => {
+      const where = e && e.filename ? `${(e.filename.split('/').pop() || 'file')}:${e.lineno || 0}` : "unknown";
+      const msg = e && e.message ? e.message : "unknown error";
+      console.error("JS Error:", e.error || e.message);
+      showToast(`⚠️ 脚本报错 ${where}｜${msg}`);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const msg = e && e.reason ? (e.reason.message || String(e.reason)) : "unknown rejection";
+      console.error("Promise Rejection:", e.reason);
+      showToast(`⚠️ Promise报错｜${msg}`);
+    });
+
+    /* 控制面板最小化/展开 - 全局函数 */
+    function togglePanel(){
+      const panel = document.getElementById("controlPanel");
+      const btn = document.getElementById("btnPanelToggle");
+      if(!panel || !btn) return;
+      panel.classList.toggle("minimized");
+      const isMin = panel.classList.contains("minimized");
+      btn.innerText = isMin ? "+" : "−";
+      btn.title = isMin ? "展开面板" : "收起面板";
+    }
+
+    /* 音频（png2 目录：bgm.mp3 / win.mp3） */
+    const bgm = new Audio("png2/bgm.mp3");  
+    bgm.loop = true; 
+    bgm.preload="auto";
+    bgm.onerror = function() {
+      console.warn("BGM文件未找到，请确保 png2/bgm.mp3 存在");
+    };
+    
+    const winSfx  = new Audio("png2/win.mp3");  
+    winSfx.preload="auto";
+    winSfx.onerror = function() {
+      console.warn("win.mp3 文件未找到，请确保 png2/win.mp3 存在");
+    };
+
+    let audioUnlocked=false;
+    let bgmResumePending=false;
+    let bgmStarted=false;
+    let bgmManuallyPaused=false; // 用户手动暂停标记
+    let isMuted=false; // 全局静音状态
+    let savedVolumes={bgm: 1, winSfx: 1}; // 保存静音前的音量（默认音量1）
+    function unlockAllAudioOnce(){
+      if (audioUnlocked) return;
+      audioUnlocked=true;
+      // 只对 winSfx 做 play→pause 解锁，避免把 BGM 也暂停掉导致“等开奖才播”
+      [winSfx].forEach(a=>{
+        try{
+          const p=a.play();
+          if(p&&p.then){
+            p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});
+          }
+        }catch(err){}
+      });
+      // 解锁后若未播过 BGM 且未手动暂停，由调用方在同一用户手势里单独 bgm.play()，此处不自动播
+    }
+    function playRollSfx(){ 
+      // 不再播放roll音效，保持BGM播放
+      unlockAllAudioOnce();
+      // 如果用户没有手动暂停，确保BGM在播放
+      if(bgmStarted && !bgmIsPlaying && !bgmManuallyPaused){
+        try{
+          ensureMuteState(bgm);
+          bgm.play().then(()=>{
+            bgmIsPlaying = true;
+          }).catch(()=>{});
+        }catch(e){}
+      }
+    }
+    function playWinSfx(){ 
+      try{ 
+        unlockAllAudioOnce();
+        // 确保静音状态已应用
+        ensureMuteState(winSfx);
+        ensureMuteState(bgm);
+        // 暂停BGM（除非用户已手动暂停）
+        const wasPlaying = bgmIsPlaying;
+        if(wasPlaying){
+          bgm.pause();
+          bgmIsPlaying = false;
+        }
+        winSfx.pause(); 
+        winSfx.currentTime=0; 
+        // 监听播放结束，恢复BGM（如果之前在播放且用户没有手动暂停）
+        winSfx.onended = function(){
+          try{
+            if(bgmStarted && wasPlaying && !bgmManuallyPaused){
+              ensureMuteState(bgm);
+              bgm.play().then(()=>{
+                bgmIsPlaying = true;
+              }).catch(()=>{});
+            }
+          }catch(e){}
+        };
+        const playPromise = winSfx.play();
+        if(playPromise !== undefined){
+          playPromise.catch(error => {
+            console.warn("win音效播放失败:", error);
+            // 如果播放失败，延迟恢复BGM
+            setTimeout(()=>{
+              try{
+            if(bgmStarted && wasPlaying && !bgmManuallyPaused){
+              ensureMuteState(bgm);
+              bgm.play().then(()=>{
+                bgmIsPlaying = true;
+              }).catch(()=>{});
+            }
+              }catch(e){}
+            }, 2000);
+          });
+        }
+      }catch(e){
+        console.warn("playWinSfx错误:", e);
+      } 
+    }
+    function ensureBgmPlaying(){
+      try{ 
+        unlockAllAudioOnce();
+        // 如果用户手动暂停了，不自动恢复
+        if (!bgmIsPlaying && !bgmManuallyPaused) {
+          ensureMuteState(bgm);
+          const playPromise = bgm.play();
+          if(playPromise !== undefined){
+            playPromise.then(()=>{
+              bgmStarted=true;
+              bgmIsPlaying=true;
+            }).catch(error => {
+              console.warn("BGM播放失败:", error);
+            });
+          }
+        }
+      }catch(e){
+        console.warn("ensureBgmPlaying错误:", e);
+      }
+    }
+    function pauseBgmForWin(){
+      // 不再需要这个函数，因为playWinSfx已经处理了暂停和恢复
+    }
+    function maybeResumeBgmAfterWin(){
+      // 不再需要这个函数，因为playWinSfx已经处理了恢复
+    }
+    let bgmIsPlaying = false; // 用独立变量跟踪播放状态
+    
+    // BGM播放函数（保留用于自动播放）
+    function playBgm(){
+      // 确保静音状态已应用
+      bgm.muted = isMuted;
+      bgm.play().then(()=>{
+        bgmStarted = true;
+        bgmIsPlaying = true;
+      }).catch((e)=>{
+        console.warn("BGM播放失败:", e);
+      });
+    }
+    
+    // 确保音频播放时应用静音状态（只改 muted，不改 volume，避免影响正常播放）
+    function ensureMuteState(audio) {
+      if(audio) {
+        audio.muted = isMuted;
+        if(isMuted) audio.volume = 0;
+      }
+    }
+
+    /* 存档 KEY（开源版使用新 key，避免加载到旧页面的真实员工/奖品存档） */
+    const STORAGE_KEY="LOTTERY_OPENSOURCE_V1";
+
+    /* 工具 */
+    const deepClone=(x)=>JSON.parse(JSON.stringify(x));
+    const pickRandom=(arr)=>arr[Math.floor(Math.random()*arr.length)];
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
+    function setStatus(t){ document.getElementById('statusText').innerText=t; }
+    function gdotHTML(group){
+      const cls = group==="A" ? "gdot-a" : group==="B" ? "gdot-b" : "gdot-c";
+      return `<span class="gdot ${cls}"></span>`;
+    }
+
+    function burstParticles(el, color, count=16){
+      if(!el) return;
+      for(let i=0;i<count;i++){
+        const p=document.createElement("div");
+        p.className="particle";
+        p.style.left=(50+(Math.random()*22-11))+"%";
+        p.style.top=(50+(Math.random()*16-8))+"%";
+        p.style.background=color;
+        p.style.setProperty("--dx",(Math.random()*220-110)+"px");
+        p.style.setProperty("--dy",(Math.random()*180-90)+"px");
+        el.appendChild(p);
+        setTimeout(()=>p.remove(),720);
+      }
+    }
+    
+    // 特等奖花落效果（优化版 - 减少DOM操作）
+    let confettiInterval = null;
+    let confettiContainer = null;
+    const CONFETTI_COLORS = ['#FF512F', '#FFD700', '#FF6B6B', '#FFA500', '#FF1493'];
+    
+    function startConfetti(){
+      // 创建容器
+      if(!confettiContainer){
+        confettiContainer = document.getElementById("confettiContainer");
+        if(!confettiContainer){
+          confettiContainer = document.createElement("div");
+          confettiContainer.id = "confettiContainer";
+          document.body.appendChild(confettiContainer);
+        }
+      }
+      
+      // 使用 requestAnimationFrame 替代 setInterval，更流畅
+      let lastTime = 0;
+      const spawnConfetti = (timestamp) => {
+        if(!confettiInterval) return;
+        
+        // 每200ms生成一批（降低频率）
+        if(timestamp - lastTime > 200){
+          lastTime = timestamp;
+          // 只生成2个（减少数量）
+          for(let i=0; i<2; i++){
+            const confetti = document.createElement("div");
+            confetti.className = "confetti";
+            confetti.style.cssText = `
+              left:${Math.random() * 100}%;
+              background:${CONFETTI_COLORS[Math.floor(Math.random()*5)]};
+              width:${6 + Math.random() * 6}px;
+              height:${6 + Math.random() * 6}px;
+              border-radius:${Math.random() > 0.5 ? "50%" : "2px"};
+              animation-duration:${2.5 + Math.random() * 1.5}s;
+            `;
+            confettiContainer.appendChild(confetti);
+            // 用更短的超时清理
+            setTimeout(()=>confetti.remove(), 3500);
+          }
+        }
+        
+        confettiInterval = requestAnimationFrame(spawnConfetti);
+      };
+      
+      confettiInterval = requestAnimationFrame(spawnConfetti);
+    }
+    
+    function stopConfetti(){
+      if(confettiInterval){
+        cancelAnimationFrame(confettiInterval);
+        confettiInterval = null;
+      }
+      if(confettiContainer){
+        confettiContainer.innerHTML = "";
+      }
+    }
+    
+    // 特等奖特效：红框闪烁
+    function startGrandPrizeEffect(){
+      const card = document.querySelector(".prizeImageCard");
+      if(card) card.classList.add("grand-prize-glow");
+      startConfetti();
+    }
+    
+    function stopGrandPrizeEffect(){
+      const card = document.querySelector(".prizeImageCard");
+      if(card) card.classList.remove("grand-prize-glow");
+      stopConfetti();
+    }
+
+    function showGrandFlash(name, dept, prizeItem){
+      const overlay=document.getElementById("flashOverlay");
+      document.getElementById("flashName").innerText=name;
+      document.getElementById("flashSub").innerText=`${dept} ｜ ${prizeItem}`;
+      overlay.classList.remove("show");
+      void overlay.offsetWidth;
+      overlay.classList.add("show");
+      setTimeout(()=>overlay.classList.remove("show"),1100);
+    }
+
+    /* 奖品图片映射表：填入「奖品名称 -> 图片相对路径」，无图片的奖品会显示文字+🎁图标 */
+    const prizeImageMap = {
+      // 示例: "奖品名称": "images/奖品图.png",
+    };
+
+    /* 显示奖品图片弹窗 */
+    /* 显示奖品图片弹窗 - 支持单个或多个奖品 */
+    // 奖项配色映射
+    const levelColorSchemes = {
+      0: { // 特等奖 - 红色
+        primary: "#FF512F",
+        gradient: "linear-gradient(135deg, #FF512F, #DD2476)",
+        text: "#FFFFFF",
+        glow: "rgba(221, 36, 118, 0.4)"
+      },
+      1: { // 一等奖 - 香槟金
+        primary: "#F09819",
+        gradient: "linear-gradient(135deg, #F09819, #EDDE5D)",
+        text: "#FFFFFF",
+        glow: "rgba(240, 152, 25, 0.35)"
+      },
+      2: { // 二等奖 - 钛银蓝
+        primary: "#E0EAFC",
+        gradient: "linear-gradient(135deg, #E0EAFC, #CFDEF3)",
+        text: "#FFFFFF",
+        glow: "rgba(207, 222, 243, 0.35)"
+      },
+      3: { // 三等奖 - 深沉古铜
+        primary: "#BF953F",
+        gradient: "linear-gradient(135deg, #BF953F, #A57C5B, #8B4513)",
+        text: "#FFFFFF",
+        glow: "rgba(191, 149, 63, 0.35)"
+      },
+      4: { // 喜乐同行 - 梦幻紫
+        primary: "#b294ff",
+        gradient: "linear-gradient(135deg, #b294ff, #57e6e6)",
+        text: "#FFFFFF",
+        glow: "rgba(178, 148, 255, 0.35)"
+      }
+    };
+
+    function showPrizeImage(prizeNames, levelName, levelId = 1){
+      // 支持单个奖品名（字符串）或多个奖品名（数组）
+      const names = Array.isArray(prizeNames) ? prizeNames : [prizeNames];
+      
+      const overlay = document.getElementById("prizeImageOverlay");
+      const wrap = document.getElementById("prizeImageWrap");
+      const title = document.getElementById("prizeImageTitle");
+      const nameEl = document.getElementById("prizeImageName");
+      const card = document.querySelector(".prizeImageCard");
+      const hint = document.querySelector(".prizeImageHint");
+      
+      // 清空之前的内容
+      wrap.innerHTML = "";
+      
+      // 检查是否有图片可显示
+      const validItems = names.filter(name => prizeImageMap[name]);
+      if(validItems.length === 0) return false;
+      
+      // 获取当前奖项配色
+      const scheme = levelColorSchemes[levelId] || levelColorSchemes[1];
+      
+      // 动态设置弹窗颜色
+      card.style.borderColor = scheme.primary;
+      card.style.boxShadow = `0 0 60px ${scheme.glow}, 0 25px 80px rgba(0,0,0,0.7), inset 0 2px 10px rgba(255,255,255,0.1)`;
+      title.style.color = scheme.primary;
+      title.style.textShadow = `0 0 20px ${scheme.glow}`;
+      nameEl.style.background = scheme.gradient;
+      nameEl.style.webkitBackgroundClip = "text";
+      nameEl.style.webkitTextFillColor = "transparent";
+      hint.style.color = scheme.primary;
+      hint.style.borderColor = scheme.primary;
+      hint.style.background = `linear-gradient(145deg, ${scheme.primary}22, ${scheme.primary}11)`;
+      hint.style.boxShadow = `0 0 25px ${scheme.glow}, 0 0 50px ${scheme.glow}, inset 0 2px 6px rgba(255,255,255,0.1)`;
+      // 喜乐同行显示"开始摇人"，其他显示"开始抽奖"
+      hint.querySelector("span").innerText = levelId === 4 ? "开始摇人" : "开始抽奖";
+      hint.style.display = "flex";
+      
+      // 单个奖品用大图模式，多个奖品用并排模式
+      if(validItems.length === 1){
+        wrap.classList.add("single-mode");
+        nameEl.style.display = "block";
+        nameEl.innerText = validItems[0];
+      }else{
+        wrap.classList.remove("single-mode");
+        nameEl.style.display = "none"; // 多个奖品时隐藏底部名称，每个图片下面显示名称
+      }
+      
+      // 生成奖品图片
+      validItems.forEach((name, index) => {
+        const imagePath = prizeImageMap[name];
+        if(imagePath){
+          const item = document.createElement("div");
+          item.className = "prizeImageItem";
+          // 所有奖项都添加候选人显示区域
+          item.innerHTML = `
+            <div class="imgWrap">
+              <img src="${imagePath}" alt="${name}" />
+            </div>
+            <div class="itemName">${name}</div>
+            <div class="candidateName" id="candidate-${index}" style="border-color:${scheme.primary}; box-shadow:0 0 15px ${scheme.glow};">准备中...</div>
+          `;
+          wrap.appendChild(item);
+        }
+      });
+      
+      title.innerText = `🎁 ${levelName}`;
+      
+      overlay.classList.remove("hide");
+      overlay.classList.add("show");
+      
+      // 确保弹窗显示后才允许下一步操作
+      prizeOverlayReady = true;
+      
+      return true;
+    }
+
+    /* 隐藏奖品图片弹窗 */
+    function hidePrizeImage(){
+      const overlay = document.getElementById("prizeImageOverlay");
+      prizeOverlayReady = false; // 重置就绪标志
+      if(!overlay.classList.contains("show")) return;
+      
+      overlay.classList.add("hide");
+      setTimeout(()=>{
+        overlay.classList.remove("show");
+        overlay.classList.remove("hide");
+      }, 400);
+    }
+
+    /* 奖项配置 */
+    const prizeLevels=[
+      { id:3, name:"三等奖",     color:"#BF953F", textColor:"#FFFFFF", quota:14, eligible:["A","B","C"] },  // 深沉古铜
+      { id:2, name:"二等奖",     color:"#E0EAFC", textColor:"#FFFFFF", quota:9,  eligible:["A","B","C"] },  // 钛银蓝
+      { id:1, name:"一等奖",     color:"#F09819", textColor:"#FFFFFF", quota:5,  eligible:["A","B"] },      // 香槟金
+      { id:0, name:"欧皇特等奖", color:"#FF512F", textColor:"#FFFFFF", quota:1,  eligible:["A"] },          // 红色
+      { id:4, name:"喜乐同行",   color:"#b294ff", textColor:"#FFFFFF", quota:23, eligible:["A","B","C"] }   // 梦幻紫
+    ];
+    /* 各等级奖品名称列表：key 为等级 id(0=特等奖,1=一等奖,2=二等奖,3=三等奖,4=喜乐同行)，value 为奖品名数组，数量需与 quota 一致 */
+    const prizeItems={
+      0:["特等奖奖品名"],
+      1:["一等奖奖品1","一等奖奖品2"],
+      2:["二等奖奖品1","二等奖奖品2"],
+      3:["三等奖奖品1","三等奖奖品2"],
+      4:["喜乐同行奖品1","喜乐同行奖品2"]
+    };
+
+    /* 员工名单：每项为 [部门, 姓名, 组别]，组别 A/B/C 对应抽奖资格（见下方 prizeLevels.eligible） */
+    const employeesRaw=[
+      ["部门1","姓名1","A"],
+      ["部门2","姓名2","B"],
+      ["部门3","姓名3","C"]
+    ].map(d=>({dept:d[0],name:d[1],group:d[2]}));
+
+    /* 状态 */
+    let state={
+      remainingPeople:[],
+      winners:[],
+      prizeLeft:{},
+      currentLevelId:3,
+      phase:"MAIN",
+      joyBatchPlan:[5,5,5,5,3],
+      joyBatchIndex:0
+    };
+    let runtime={
+      machine:"IDLE",
+      timer:null,
+      raf:null,
+      rollingLevelId:null,
+      currentPrizeText:"",
+      currentCandidate:null,
+      joyBatchPrizes:[], // 喜乐同行当前批次的奖品
+      pendingWinner:null, // 等待确认入框的主奖中奖者
+      pendingJoyWinners:null // 等待确认入框的喜乐同行中奖者
+    };
+
+    function saveState(){ 
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        // 额外备份到另一个 key，防止主 key 损坏
+        localStorage.setItem(STORAGE_KEY + '_backup', JSON.stringify(state));
+        return true;
+      }catch(e){
+        console.error('保存状态失败:', e);
+        showToast('⚠️ 保存失败，请检查浏览器存储空间');
+        return false;
+      }
+    }
+    function loadState(){
+      try{
+        let s=localStorage.getItem(STORAGE_KEY);
+        // 如果主 key 不存在或损坏，尝试备份
+        if(!s){
+          s=localStorage.getItem(STORAGE_KEY + '_backup');
+          if(s){
+            showToast('⚠️ 从备份恢复数据');
+          }
+        }
+        if(!s) return false;
+        const parsed=JSON.parse(s);
+        state=parsed;
+        return true;
+      }catch(e){
+        console.error('加载状态失败:', e);
+        // 尝试从备份恢复
+        try{
+          const backup=localStorage.getItem(STORAGE_KEY + '_backup');
+          if(backup){
+            state=JSON.parse(backup);
+            showToast('⚠️ 从备份恢复数据');
+            return true;
+          }
+        }catch(e2){
+          console.error('备份恢复也失败:', e2);
+        }
+        return false;
+      }
+    }
+    function normalizeState(){
+      if(!Array.isArray(state.remainingPeople)) state.remainingPeople=[];
+      if(!Array.isArray(state.winners)) state.winners=[];
+      if(!state.prizeLeft || typeof state.prizeLeft!=="object") state.prizeLeft={};
+      if(!Array.isArray(state.joyBatchPlan)) state.joyBatchPlan=[5,5,5,5,3];
+      if(typeof state.joyBatchIndex!=="number") state.joyBatchIndex=0;
+      if(typeof state.currentLevelId!=="number") state.currentLevelId=3;
+      if(!["MAIN","JOY","DONE"].includes(state.phase)) state.phase="MAIN";
+      [0,1,2,3,4].forEach(id=>{ if(!Array.isArray(state.prizeLeft[id])) state.prizeLeft[id]=[]; });
+    }
+
+    function stopRollingAll(){
+      if(runtime.timer){ clearTimeout(runtime.timer); runtime.timer=null; }
+      if(runtime.raf){ cancelAnimationFrame(runtime.raf); runtime.raf=null; }
+      runtime.rollingLevelId=null;
+      document.querySelectorAll(".draw-slot").forEach(s=>s.classList.remove("active-rainbow"));
+      
+      // 如果正在摇人时被停止，需要回到上一个状态，而不是直接揭晓
+      if(runtime.machine==="ROLL_PERSON" || runtime.machine==="ROLLING"){
+        // 回到显示奖品状态，让用户重新开始摇人
+        if(runtime.machine==="ROLL_PERSON"){
+          runtime.machine="SHOW_PRIZE";
+          const levelId = state.currentLevelId;
+          const lv = prizeLevels.find(x=>x.id===levelId);
+          if(lv){
+            setStatus(`🎁 ${lv.name} 奖品已亮：再按一次开始摇人`);
+          }
+        }else if(runtime.machine==="ROLLING"){
+          runtime.machine="IDLE";
+          setStatus("🎁 喜乐同行：按一次开始摇人");
+        }
+      }
+    }
+
+    function getEligiblePeopleForLevel(levelId){
+      const lv=prizeLevels.find(x=>x.id===levelId);
+      const allowed=new Set(lv.eligible);
+      return state.remainingPeople.filter(p=>allowed.has(p.group));
+    }
+    function mainLevelFinished(levelId){ return (state.prizeLeft[levelId]?.length ?? 0) <= 0; }
+    function allMainFinished(){ return [0,1,2,3].every(id=>mainLevelFinished(id)); }
+    function decidePhase(){
+      if(state.phase==="DONE") return;
+      if(!allMainFinished()){ state.phase="MAIN"; return; }
+      if((state.prizeLeft[4]?.length ?? 0) > 0 && state.remainingPeople.length > 0){
+        // 特等奖抽完也先停顿，不在此处弹验证码；等用户按空格后由 handleDrawAction 的 awaitingNextLevel 分支再弹
+        if(state.phase === "MAIN") return;
+        state.phase="JOY"; return;
+      }
+      state.phase="DONE";
+    }
+    function getDefaultOrder(){
+      const allowGrand=mainLevelFinished(1);
+      return allowGrand ? [3,2,1,0] : [3,2,1];
+    }
+    function nextDefaultLevel(){
+      const order=getDefaultOrder();
+      const idx=order.indexOf(state.currentLevelId);
+      for(let k=0;k<order.length;k++){
+        const id=order[(idx+k)%order.length];
+        if(!mainLevelFinished(id)){
+          // 检查是否需要验证码：从当前级别切换到下一个级别时
+          const currentId = state.currentLevelId;
+          const nextId = id;
+          
+          // 需要验证码的切换：3->2, 2->1, 1->0
+          const needVerify = (currentId === 3 && nextId === 2) || 
+                            (currentId === 2 && nextId === 1) || 
+                            (currentId === 1 && nextId === 0);
+          
+          if(needVerify){
+            const verifyCode = Math.floor(Math.random() * 9000 + 1000).toString();
+            const currentLevelName = prizeLevels.find(x=>x.id===currentId)?.name || '';
+            const nextLevelName = prizeLevels.find(x=>x.id===nextId)?.name || '';
+            const input = prompt(`⚠️ 验证：${currentLevelName}已抽完，即将切换到${nextLevelName}\n\n请输入验证码 ${verifyCode} 以继续：`);
+            if((input || "").trim() !== verifyCode){
+              showToast("验证码错误，切换已取消");
+              return;
+            }
+          }
+          
+          state.currentLevelId=id;
+          saveState();
+          updateLevelSelect();
+          showToast(`默认顺序：${prizeLevels.find(x=>x.id===id).name}`);
+          return;
+        }
+      }
+      showToast("主奖已抽完（或欧皇未解锁）");
+    }
+
+    function toCSV(){
+      const header=["时间","奖项等级","奖品","姓名","部门"].join(",");
+      const rows=state.winners.map(w=>{
+        const esc=(s)=>`"${String(s).replace(/"/g,'""')}"`;
+        return [esc(w.time),esc(w.levelName),esc(w.prizeItem),esc(w.person.name),esc(w.person.dept)].join(",");
+      });
+      return [header, ...rows].join("\n");
+    }
+    function downloadFile(filename, content, mime){
+      const blob=new Blob([content],{type:mime});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function exportCSV(){
+      const name=`年会抽奖记录_${new Date().toISOString().slice(0,10)}.csv`;
+      downloadFile(name, toCSV(), "text/csv;charset=utf-8");
+      showToast("CSV 已导出");
+    }
+    function exportJSON(){
+      const obj={ meta:{generatedAt:new Date().toISOString()}, winners:state.winners };
+      const name=`年会抽奖记录_${new Date().toISOString().slice(0,10)}.json`;
+      downloadFile(name, JSON.stringify(obj,null,2), "application/json;charset=utf-8");
+      showToast("JSON 已导出");
+    }
+    async function copyRecords(){
+      const text=toCSV();
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast("已复制（CSV）");
+      }catch(e){
+        const ta=document.createElement("textarea");
+        ta.value=text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        showToast("已复制（降级方案）");
+      }
+    }
+  </script>
+  <script>
+    function recordWinner(levelId, person, prizeItem){
+      const lv=prizeLevels.find(x=>x.id===levelId);
+      state.winners.push({
+        time:new Date().toISOString(),
+        levelId,
+        levelName:lv.name,
+        prizeItem,
+        person
+      });
+      saveState();
+    }
+
+    // 这两个函数已不再需要，抽奖在图片弹窗中进行
+    function buildDrawSlotsMain(){ }
+    function buildDrawSlotsJoy(count){ }
+
+    function updateStatsUI(){
+      const left=(id)=> (state.prizeLeft[id]?.length ?? 0);
+      const joyLeft=left(4);
+      const undrawn=state.remainingPeople.length;
+      const total=undrawn+(state.winners?.length??0)||1;
+
+      const grid=document.getElementById("statsGrid");
+      const mk=(name,color,val)=>`
+        <div class="line">
+          <div class="stats-name">
+            <span class="dot" style="background:${color};color:${color}"></span>
+            <span style="white-space:nowrap;">${name}</span>
+          </div>
+          <b style="font-family:monospace;flex-shrink:0;">${val}</b>
+        </div>
+      `;
+      grid.innerHTML =
+        mk("三等奖", prizeLevels.find(x=>x.id===3).color, left(3))+
+        mk("二等奖", prizeLevels.find(x=>x.id===2).color, left(2))+
+        mk("一等奖", prizeLevels.find(x=>x.id===1).color, left(1))+
+        mk("欧皇特等奖", prizeLevels.find(x=>x.id===0).color, left(0));
+
+      document.getElementById("statsUnwon").innerText=undrawn;
+      document.getElementById("statsTotal").innerText=total;
+      document.getElementById("statsJoy").innerText=joyLeft;
+      const pct=total>0?(undrawn/total*100):0;
+      document.getElementById("statsBar").style.width=pct+"%";
+    }
+
+    function createWallSlot(levelId){
+      const slot=document.createElement("div");
+      slot.className="slot";
+      if(levelId===0) slot.classList.add("p0");
+      if(levelId===1) slot.classList.add("p1");
+      if(levelId===2) slot.classList.add("p2");
+      if(levelId===3) slot.classList.add("p3");
+      if(levelId===4) slot.classList.add("p4");
+
+      slot.innerHTML = `
+        <div class="crown">👑</div>
+        <div class="placeholder"></div>
+        <div class="content"></div>
+      `;
+      return slot;
+    }
+
+    function initWall(){
+      const wg=document.getElementById("wrapGrand");
+      const w1=document.getElementById("wrapFirst");
+      const w2=document.getElementById("wrapSecond");
+      const w3=document.getElementById("wrapThird");
+      const w4=document.getElementById("wrapJoy");
+      wg.innerHTML=""; w1.innerHTML=""; w2.innerHTML=""; w3.innerHTML=""; w4.innerHTML="";
+
+      wg.appendChild(createWallSlot(0));
+      for(let i=0;i<5;i++)  w1.appendChild(createWallSlot(1));
+      for(let i=0;i<9;i++)  w2.appendChild(createWallSlot(2));
+      for(let i=0;i<14;i++) w3.appendChild(createWallSlot(3));
+      for(let i=0;i<23;i++) w4.appendChild(createWallSlot(4));
+    }
+
+    function fillWall(levelId, person, item){
+      const wrap =
+        levelId===0 ? document.getElementById("wrapGrand") :
+        levelId===1 ? document.getElementById("wrapFirst") :
+        levelId===2 ? document.getElementById("wrapSecond") :
+        levelId===3 ? document.getElementById("wrapThird") :
+        document.getElementById("wrapJoy");
+
+      const slot = Array.from(wrap.querySelectorAll(".slot")).find(s=>!s.classList.contains("filled"));
+      if(!slot) return null;
+
+      slot.classList.add("filled");
+      const content = slot.querySelector(".content");
+      if(content){
+        const lv = prizeLevels.find(x=>x.id===levelId);
+        const levelName = lv ? lv.name : "";
+        content.innerHTML = `
+          <div class="c-level">${levelName}</div>
+          <div class="c-name">${gdotHTML(person.group)}<span>${person.name}</span></div>
+          <div class="c-dept">${person.dept}</div>
+          <div class="c-item">${item}</div>
+        `;
+        // 确保内容完全居中
+        content.style.display = 'flex';
+      }
+
+      return slot;
+    }
+
+    function renderFromWinners(){
+      try{
+        // 直接调用 initWall，如果不存在会抛出错误
+        initWall();
+        if(state.winners && Array.isArray(state.winners)){
+          state.winners.forEach(w=>{
+            if(w && w.levelId !== undefined && w.person && w.prizeItem){
+              fillWall(w.levelId, w.person, w.prizeItem);
+            }
+          });
+        }
+      }catch(error){
+        console.error('渲染中奖记录失败:', error);
+        if(error.message && error.message.includes('initWall')){
+          console.error('initWall 未定义，无法渲染');
+        }else{
+          showToast('⚠️ 渲染中奖记录时出错');
+        }
+      }
+    }
+
+    function updateLevelSelect(){
+      const sel=document.getElementById("levelSelect");
+      const allowGrand=mainLevelFinished(1);
+      const options=[
+        {id:3,name:"三等奖"},
+        {id:2,name:"二等奖"},
+        {id:1,name:"一等奖"},
+        {id:0,name:"欧皇特等奖", disabled:!allowGrand}
+      ];
+      sel.innerHTML = options.map(o=>{
+        const dis=o.disabled?"disabled":"";
+        const hint=o.disabled?"（未解锁）":"";
+        return `<option value="${o.id}" ${dis}>${o.name}${hint}</option>`;
+      }).join("");
+
+      if(state.currentLevelId===0 && !allowGrand) state.currentLevelId=3;
+      sel.value=String(state.currentLevelId);
+    }
+
+    // 首次初始化（无确认）
+    function initFreshState(){
+      stopRollingAll();
+
+      state.remainingPeople=deepClone(employeesRaw);
+      state.prizeLeft={
+        0:shuffle(deepClone(prizeItems[0])),
+        1:shuffle(deepClone(prizeItems[1])),
+        2:shuffle(deepClone(prizeItems[2])),
+        3:shuffle(deepClone(prizeItems[3])),
+        4:shuffle(deepClone(prizeItems[4]))
+      };
+      state.winners=[];
+      state.currentLevelId=3;
+      state.phase="MAIN";
+      state.joyBatchPlan=[5,5,5,5,3];
+      state.joyBatchIndex=0;
+
+      saveState();
+      initWall();
+      updateLevelSelect();
+      updateStatsUI();
+      setStatus("等待开始（按空格显示奖品）");
+    }
+    
+    function resetAll(){
+      // 多重确认：第一次确认
+      const firstConfirm = confirm("⚠️ 警告：您即将重置所有抽奖数据！\n\n这将清除：\n• 所有中奖记录\n• 所有奖品分配\n• 所有抽奖进度\n\n是否继续？");
+      if(!firstConfirm) return;
+
+      // 多重确认：第二次确认（输入验证码）
+      const verifyCode = Math.floor(Math.random() * 9000 + 1000).toString();
+      const secondInput = prompt(`⚠️ 二次确认：请输入验证码 ${verifyCode} 以确认重置：`);
+      if((secondInput || "").trim() !== verifyCode){
+        showToast("验证码错误，重置已取消");
+        return;
+      }
+
+      // 多重确认：第三次最终确认
+      const finalConfirm = confirm("⚠️ 最终确认：\n\n您确定要重置所有数据吗？\n此操作不可恢复！\n\n点击【确定】继续，点击【取消】放弃。");
+      if(!finalConfirm){
+        showToast("重置已取消");
+        return;
+      }
+
+      stopRollingAll();
+
+      state.remainingPeople=deepClone(employeesRaw);
+      state.prizeLeft={
+        0:shuffle(deepClone(prizeItems[0])),
+        1:shuffle(deepClone(prizeItems[1])),
+        2:shuffle(deepClone(prizeItems[2])),
+        3:shuffle(deepClone(prizeItems[3])),
+        4:shuffle(deepClone(prizeItems[4]))
+      };
+      state.winners=[];
+      state.currentLevelId=3;
+      state.phase="MAIN";
+      state.joyBatchPlan=[5,5,5,5,3];
+      state.joyBatchIndex=0;
+
+      saveState();
+      initWall();
+      buildDrawSlotsMain();
+      updateLevelSelect();
+      updateStatsUI();
+      setStatus("等待开始（Space 或 按按钮）");
+      showToast("✅ 已重置抽奖进度");
+    }
+
+    /* 主奖：奖品先亮（不消耗），再摇人，确认时扣奖扣人 */
+    function showPrizeFirst(levelId){
+      const lv=prizeLevels.find(x=>x.id===levelId);
+      const items=state.prizeLeft[levelId];
+      if(!items || !items.length){
+        showToast("该档奖品已抽完，请换档");
+        setStatus("该档奖品已抽完");
+        return false;
+      }
+      runtime.currentPrizeText=items[items.length-1];
+
+      // 显示奖品图片弹窗
+      const shown = showPrizeImage([runtime.currentPrizeText], lv.name, levelId);
+      if(!shown){
+        // 如果没有图片，也要显示弹窗（创建一个简单的文字显示）
+        showPrizeImageText(runtime.currentPrizeText, lv.name, levelId);
+      }
+
+      setStatus(`🎁 ${lv.name} 奖品已亮：再按一次开始摇人`);
+      return true;
+    }
+    
+    // 没有图片时显示文字奖品弹窗
+    function showPrizeImageText(prizeName, levelName, levelId){
+      const overlay = document.getElementById("prizeImageOverlay");
+      const wrap = document.getElementById("prizeImageWrap");
+      const title = document.getElementById("prizeImageTitle");
+      const nameEl = document.getElementById("prizeImageName");
+      const card = document.querySelector(".prizeImageCard");
+      const hint = document.querySelector(".prizeImageHint");
+      
+      const scheme = levelColorSchemes[levelId] || levelColorSchemes[1];
+      
+      // 设置颜色
+      card.style.borderColor = scheme.primary;
+      card.style.boxShadow = `0 0 60px ${scheme.glow}, 0 25px 80px rgba(0,0,0,0.7)`;
+      title.style.color = scheme.primary;
+      hint.style.color = scheme.primary;
+      hint.style.borderColor = scheme.primary;
+      hint.style.background = `linear-gradient(145deg, ${scheme.primary}22, ${scheme.primary}11)`;
+      hint.style.boxShadow = `0 0 25px ${scheme.glow}, 0 0 50px ${scheme.glow}, inset 0 2px 6px rgba(255,255,255,0.1)`;
+      hint.querySelector("span").innerText = "开始抽奖";
+      hint.style.display = "flex";
+      
+      // 显示文字奖品
+      wrap.classList.add("single-mode");
+      wrap.innerHTML = `
+        <div class="prizeImageItem">
+          <div class="imgWrap" style="display:flex;align-items:center;justify-content:center;font-size:80px;">🎁</div>
+          <div class="itemName" style="display:block;font-size:20px;width:280px;">${prizeName}</div>
+          <div class="candidateName" id="candidate-0" style="border-color:${scheme.primary}; box-shadow:0 0 15px ${scheme.glow};">准备中...</div>
+        </div>
+      `;
+      nameEl.style.display = "none";
+      
+      title.innerText = `🎁 ${levelName}`;
+      
+      overlay.classList.remove("hide");
+      overlay.classList.add("show");
+      
+      // 确保弹窗显示后才允许下一步操作
+      prizeOverlayReady = true;
+    }
+
+    function loopRollingPerson(levelId){
+      runtime.rollingLevelId=levelId;
+      const lv=prizeLevels.find(x=>x.id===levelId);
+      const candidates=getEligiblePeopleForLevel(levelId);
+      const p=candidates.length ? pickRandom(candidates) : null;
+      runtime.currentCandidate=p;
+
+      // 隐藏"开始抽奖"提示
+      const hint = document.querySelector(".prizeImageHint");
+      if(hint) hint.style.display = "none";
+
+      // 在图片弹窗中滚动名字
+      const candidateEl = document.getElementById("candidate-0");
+      if(candidateEl){
+        candidateEl.className = "candidateName rolling";
+        candidateEl.style.borderColor = lv.color;
+        candidateEl.innerText = p ? `👉 ${p.name}` : "（无人符合资格）";
+      }
+
+      runtime.timer=setTimeout(()=>loopRollingPerson(levelId),30);
+    }
+
+    function finalizeMainWinner(levelId){
+      stopRollingAll();
+
+      const lv=prizeLevels.find(x=>x.id===levelId);
+      const candidates=getEligiblePeopleForLevel(levelId);
+      if(!candidates.length){
+        showToast("该档无人符合资格：请切换档位");
+        setStatus(`⚠️ ${lv.name} 无人符合资格，请切换档位`);
+        hidePrizeImage();
+        return false;
+      }
+
+      const items=state.prizeLeft[levelId];
+      if(!items || !items.length){
+        showToast("该档奖品已抽完，请换档");
+        setStatus("该档奖品已抽完");
+        hidePrizeImage();
+        return false;
+      }
+
+      const person=pickRandom(candidates);
+      state.remainingPeople = state.remainingPeople.filter(p=>!(p.name===person.name && p.dept===person.dept && p.group===person.group));
+      const prizeItem=items.pop();
+
+      recordWinner(levelId, person, prizeItem);
+
+      pauseBgmForWin();
+      playWinSfx();
+
+      // 在图片弹窗中显示中奖者
+      const candidateEl = document.getElementById("candidate-0");
+      if(candidateEl){
+        candidateEl.className = "candidateName winner";
+        candidateEl.style.borderColor = lv.color;
+        candidateEl.style.boxShadow = `0 0 25px ${lv.color}`;
+        candidateEl.innerText = `🎉 ${person.name}`;
+      }
+
+      // 显示提示：按空格入框
+      const hint = document.querySelector(".prizeImageHint");
+      if(hint){
+        hint.style.display = "flex";
+        hint.querySelector("span").innerText = "按空格入框";
+      }
+
+      // 特等奖启动特效（花落+红框闪烁）
+      if(levelId === 0){
+        startGrandPrizeEffect();
+      }
+
+      // 保存中奖信息，等待用户按键后入框
+      runtime.pendingWinner = { levelId, person, prizeItem };
+      runtime.machine = "WAIT_CONFIRM";
+      setStatus(`✅ 中奖锁定！请按【抽奖大按钮】存入奖池`);
+
+      saveState();
+      return true;
+    }
+    
+    // 确认入框（用户按空格后调用）
+    function confirmWinnerToWall(){
+      const { levelId, person, prizeItem } = runtime.pendingWinner || {};
+      if(!person) return;
+      
+      const lv = prizeLevels.find(x=>x.id===levelId);
+      
+      // 停止特等奖特效
+      if(levelId === 0){
+        stopGrandPrizeEffect();
+      }
+      
+      hidePrizeImage();
+      
+      setTimeout(()=>{
+        const wallSlot=fillWall(levelId, person, prizeItem);
+        if(wallSlot){
+          if(levelId===0){
+            showGrandFlash(person.name, person.dept, prizeItem);
+          }else{
+            wallSlot.classList.add("shake");
+            burstParticles(wallSlot, lv.color, 18);
+            setTimeout(()=>wallSlot.classList.remove("shake"),520);
+          }
+        }
+
+        updateStatsUI();
+
+        if(levelId===1 && mainLevelFinished(1)){
+          showToast("👑 欧皇特等奖已解锁（一等奖已抽完）");
+        }
+
+        decidePhase();
+        runtime.pendingWinner = null;
+        runtime.machine = "IDLE";
+        
+        if(state.phase==="DONE"){
+          setStatus("🎊 全部抽奖结束！");
+          showLotteryDoneScreen();
+        }else{
+          setStatus(`✅ ${lv.name} 已入框，按空格继续`);
+        }
+      }, 300);
+    }
+  </script>
+    <script>
+    /* 喜乐：批量摇人（5/5/5/5/3），每批显示对应数量的框 */
+    function joyBatchCount(){
+      const plan=state.joyBatchPlan;
+      const idx=state.joyBatchIndex;
+      if(idx>=plan.length) return 0;
+      return plan[idx];
+    }
+
+    function loopRollingJoy(count){
+      runtime.rollingLevelId=4;
+      const lv=prizeLevels.find(x=>x.id===4);
+      const pool=state.remainingPeople;
+      
+      // 隐藏"开始摇人"提示
+      const hint = document.querySelector(".prizeImageHint");
+      if(hint) hint.style.display = "none";
+      
+      // 在图片弹窗中滚动名字
+      for(let i=0;i<count;i++){
+        const candidateEl = document.getElementById(`candidate-${i}`);
+        if(candidateEl){
+          const p = pool.length ? pickRandom(pool) : null;
+          candidateEl.className = "candidateName rolling";
+          candidateEl.style.borderColor = lv.color;
+          candidateEl.innerText = p ? `👉 ${p.name}` : "（无人）";
+        }
+      }
+      runtime.timer=setTimeout(()=>loopRollingJoy(count),30);
+    }
+
+    function finalizeJoyBatch(count){
+      stopRollingAll();
+      const lv=prizeLevels.find(x=>x.id===4);
+      const items=state.prizeLeft[4] || [];
+      if(!items.length){
+        showToast("喜乐奖品已发完");
+        hidePrizeImage();
+        decidePhase();
+        return false;
+      }
+      if(!state.remainingPeople.length){
+        showToast("无人可抽");
+        hidePrizeImage();
+        decidePhase();
+        return false;
+      }
+
+      pauseBgmForWin();
+      playWinSfx();
+
+      // 存储中奖者信息，用于延迟入框
+      const winners = [];
+
+      for(let i=0;i<count;i++){
+        if(!state.remainingPeople.length) break;
+        if(!items.length) break;
+
+        const person=pickRandom(state.remainingPeople);
+        state.remainingPeople = state.remainingPeople.filter(p=>!(p.name===person.name && p.dept===person.dept && p.group===person.group));
+        const prizeItem=items.pop();
+        recordWinner(4, person, prizeItem);
+        winners.push({ person, prizeItem, index: i });
+
+        // 先在图片下面显示中奖者
+        const candidateEl = document.getElementById(`candidate-${i}`);
+        if(candidateEl){
+          candidateEl.className = "candidateName winner";
+          candidateEl.style.borderColor = lv.color;
+          candidateEl.style.boxShadow = `0 0 25px ${lv.color}`;
+          candidateEl.innerText = `🎉 ${person.name}`;
+        }
+      }
+
+      // 显示提示：按空格入框
+      const hint = document.querySelector(".prizeImageHint");
+      if(hint){
+        hint.style.display = "flex";
+        hint.querySelector("span").innerText = "按空格入框";
+      }
+
+      // 保存中奖信息，等待用户按键后入框
+      runtime.pendingJoyWinners = winners;
+      runtime.machine = "WAIT_JOY_CONFIRM";
+      setStatus(`✅ 中奖锁定！请按【抽奖大按钮】存入奖池`);
+
+      saveState();
+      return true;
+    }
+    
+    // 喜乐同行确认入框
+    function confirmJoyWinnersToWall(){
+      const winners = runtime.pendingJoyWinners || [];
+      if(!winners.length) return;
+      
+      const lv = prizeLevels.find(x=>x.id===4);
+      
+      hidePrizeImage();
+      
+      setTimeout(()=>{
+        winners.forEach(({ person, prizeItem }) => {
+          const wallSlot=fillWall(4, person, prizeItem);
+          if(wallSlot){
+            wallSlot.classList.add("shake");
+            burstParticles(wallSlot, lv.color, 12);
+            setTimeout(()=>wallSlot.classList.remove("shake"),520);
+          }
+        });
+        
+        updateStatsUI();
+        state.joyBatchIndex += 1;
+        decidePhase();
+        saveState();
+
+        runtime.pendingJoyWinners = null;
+        runtime.machine = "IDLE";
+        
+        if(state.phase==="DONE"){
+          setStatus("🎊 全部抽奖结束！");
+          showLotteryDoneScreen();
+        }else{
+          setStatus("✅ 喜乐同行已入框，按空格继续下一批");
+        }
+      }, 300);
+    }
+    
+    // 显示抽奖结束画面
+    function showLotteryDoneScreen(){
+      document.body.classList.add("lottery-done");
+      showToast("🎊 全部抽奖已结束！感谢参与！");
+    }
+    
+    // 返回正常界面
+    function backToNormal(){
+      document.body.classList.remove("lottery-done");
+    }
+
+    /* 防抖：防止快速连按 */
+    let lastActionTime = 0;
+    const ACTION_COOLDOWN = 400; // 400ms冷却时间，确保弹窗有时间显示
+    let prizeOverlayReady = false; // 奖品弹窗是否已就绪
+    let isFrozen = false; // 禁用空格：为 true 时空格键失灵，直到点「恢复」
+    let awaitingNextLevel = false; // 本档已抽完，等一次空格再切下一档（中间可按禁用空格）
+    let hasLotteryStarted = false; // 抽奖已正式开始：第一下空格/按钮推进后置为 true，用于屏蔽刷新快捷键
+
+    /* 核心入口：按钮/空格 推进状态机 */
+    function handleDrawAction(){
+      // 禁用空格只让空格键失灵，不拦这里；空格在 keydown 里单独判断
+      if(!hasLotteryStarted){
+        hasLotteryStarted = true; // 第一轮真正推进时打上“已开始”标记
+        // 第一次推进（空格或按钮）立即开始 BGM，与 unlock 同一次用户手势
+        unlockAllAudioOnce();
+        if(!bgmStarted && !bgmManuallyPaused){
+          try{
+            ensureMuteState(bgm);
+            bgm.play().then(()=>{ bgmStarted=true; bgmIsPlaying=true; }).catch(()=>{});
+          }catch(e){}
+        }
+        // 尝试把焦点锁在页面内，降低误触浏览器快捷键概率（部分浏览器可能忽略）
+        try{
+          if(document.body && typeof document.body.focus==="function"){
+            document.body.focus();
+          }
+          if(typeof window.focus==="function"){
+            window.focus();
+          }
+        }catch(e){}
+      }
+      // 本档已抽完、等一次空格再切档：这次空格就切档（出验证码），给中间一次按「全屏禁止」的机会
+      if(awaitingNextLevel){
+        awaitingNextLevel = false;
+        // 特等奖(0)抽完：先停顿已过，这次空格弹「切换到喜乐同行」验证码，与其它档一致
+        if(state.currentLevelId === 0 && allMainFinished() && (state.prizeLeft[4]?.length ?? 0) > 0 && state.remainingPeople.length > 0){
+          const verifyCode = Math.floor(Math.random() * 9000 + 1000).toString();
+          const input = prompt(`⚠️ 验证：特等奖已抽完，即将切换到喜乐同行\n\n请输入验证码 ${verifyCode} 以继续：`);
+          if((input || "").trim() !== verifyCode){
+            showToast("验证码错误，切换已取消");
+            awaitingNextLevel = true;
+            return;
+          }
+          state.phase = "JOY";
+          saveState();
+          runtime.machine = "IDLE";
+          const c = joyBatchCount();
+          setStatus(c ? `继续喜乐同行：按空格显示奖品（${c}个）` : "继续主奖：按空格显示奖品");
+          showToast("已切换到喜乐同行");
+          return;
+        }
+        nextDefaultLevel();
+        runtime.machine = "IDLE";
+        setStatus("默认顺序：按一次先亮奖品");
+        return;
+      }
+      // 防抖检查
+      const now = Date.now();
+      if(now - lastActionTime < ACTION_COOLDOWN){
+        return;
+      }
+      lastActionTime = now;
+
+      // BGM 已在第一次按空格/点按钮时在 keydown/click 里统一开始，此处不再重复启动
+      unlockAllAudioOnce();
+      maybeResumeBgmAfterWin();
+      playRollSfx();
+
+      // 优先处理等待确认入框状态（在decidePhase之前）
+      if(runtime.machine==="WAIT_CONFIRM"){
+        confirmWinnerToWall();
+        return;
+      }
+      if(runtime.machine==="WAIT_JOY_CONFIRM"){
+        confirmJoyWinnersToWall();
+        return;
+      }
+
+      decidePhase();
+      if(state.phase==="DONE"){
+        showToast("全部抽奖已结束");
+        showLotteryDoneScreen();
+        return;
+      }
+
+      // MAIN
+      if(state.phase==="MAIN"){
+        // 欧皇未解锁保护
+        if(state.currentLevelId===0 && !mainLevelFinished(1)){
+          showToast("欧皇特等奖需在一等奖抽完后解锁");
+          state.currentLevelId=3;
+          updateLevelSelect();
+          return;
+        }
+
+        buildDrawSlotsMain(); // ✅ 保证主奖界面一定是2框
+
+        const levelId=state.currentLevelId;
+        const lv=prizeLevels.find(x=>x.id===levelId);
+
+        // 如果当前级别已抽完：先等一次空格再切档，中间可按「禁用空格」暂停
+        if(mainLevelFinished(levelId)){
+          awaitingNextLevel = true;
+          setStatus(`本档已抽完，按空格切下一档（可先按「禁用空格」暂停）`);
+          showToast("本档已抽完，按空格输入验证码切下一档");
+          return;
+        }
+
+        if(runtime.machine==="IDLE"){
+          runtime.machine="SHOW_PRIZE";
+          const ok=showPrizeFirst(levelId);
+          if(!ok) runtime.machine="IDLE";
+          return;
+        }
+
+        if(runtime.machine==="SHOW_PRIZE"){
+          // 确保弹窗已经显示完毕
+          if(!prizeOverlayReady){
+            setStatus(`⏳ 请稍候，奖品正在显示...`);
+            return;
+          }
+          runtime.machine="ROLL_PERSON";
+          setStatus(`🎯 ${lv.name} 开始摇人：再按一次锁定`);
+          loopRollingPerson(levelId);
+          return;
+        }
+
+        if(runtime.machine==="ROLL_PERSON"){
+          // 检查是否真的在摇人（防止暂停后直接揭晓）
+          if(runtime.rollingLevelId === null || runtime.rollingLevelId !== levelId){
+            // 如果摇人已停止，需要重新显示奖品图片并开始摇人
+            const items = state.prizeLeft[levelId] || [];
+            if(items.length > 0){
+              const prizeItem = items[items.length - 1];
+              showPrizeImage([prizeItem], lv.name, levelId);
+            }
+            runtime.machine="ROLL_PERSON";
+            setStatus(`🎯 ${lv.name} 开始摇人：再按一次锁定`);
+            loopRollingPerson(levelId);
+            return;
+          }
+          
+          // 停止摇人并揭晓（finalizeMainWinner会设置WAIT_CONFIRM状态）
+          stopRollingAll();
+          runtime.rollingLevelId=null;
+          finalizeMainWinner(levelId);
+          // 状态已在 finalizeMainWinner 中设置为 WAIT_CONFIRM
+          return;
+        }
+        
+        // 如果状态是REVEAL，说明正在揭晓中，忽略按键
+        if(runtime.machine==="REVEAL"){
+          return;
+        }
+
+        runtime.machine="IDLE";
+        return;
+      }
+
+      // JOY
+      if(state.phase==="JOY"){
+        const count=joyBatchCount();
+        if(!count){
+          decidePhase();
+          if(state.phase==="DONE") setStatus("🎊 全部抽奖结束！");
+          return;
+        }
+
+        // IDLE -> SHOW_JOY_PRIZE -> ROLLING -> REVEAL -> IDLE
+        if(runtime.machine==="IDLE"){
+          // 显示当前批次的奖品图片
+          runtime.machine="SHOW_JOY_PRIZE";
+          buildDrawSlotsJoy(count);
+          
+          // 获取当前批次的奖品（从奖池末尾取count个）
+          const items = state.prizeLeft[4] || [];
+          const batchPrizes = items.slice(-count).reverse(); // 取最后count个，反转顺序
+          runtime.joyBatchPrizes = batchPrizes; // 保存当前批次奖品
+          
+          // 显示奖品图片弹窗
+          showPrizeImage(batchPrizes, "喜乐同行", 4);
+          
+          setStatus(`🎁 喜乐同行（${count}个）：按一次开始摇人`);
+          return;
+        }
+
+        if(runtime.machine==="SHOW_JOY_PRIZE"){
+          // 确保弹窗已经显示完毕
+          if(!prizeOverlayReady){
+            setStatus(`⏳ 请稍候，奖品正在显示...`);
+            return;
+          }
+          // 如果剩余人数 <= 奖品数，直接揭晓（不需要摇人）
+          if(state.remainingPeople.length <= count){
+            runtime.machine="REVEAL";
+            runtime.rollingLevelId=null;
+            finalizeJoyBatch(count);
+            return;
+          }
+          // 保持奖品图片显示，在图片下面滚动名字
+          runtime.machine="ROLLING";
+          setStatus(`🎯 喜乐同行 批量摇人（${count}个）：再按一次揭晓`);
+          loopRollingJoy(count);
+          return;
+        }
+
+        if(runtime.machine==="ROLLING"){
+          // 检查是否真的在摇人（防止暂停后直接揭晓）
+          if(runtime.rollingLevelId === null || runtime.rollingLevelId !== 4){
+            // 如果摇人已停止，需要重新开始摇人，并确保弹窗显示
+            const items = state.prizeLeft[4] || [];
+            const batchPrizes = items.slice(-count).reverse();
+            showPrizeImage(batchPrizes, "喜乐同行", 4);
+            runtime.machine="ROLLING";
+            setStatus(`🎯 喜乐同行 批量摇人（${count}个）：再按一次揭晓`);
+            loopRollingJoy(count);
+            return;
+          }
+          
+          // 停止摇人并揭晓
+          stopRollingAll();
+          runtime.machine="REVEAL";
+          runtime.rollingLevelId=null;
+          finalizeJoyBatch(count);
+          // finalizeJoyBatch 内部已经设置 runtime.machine="IDLE"
+          // 确保状态机回到 IDLE，用户需要再按一次才能开始下一批
+          return;
+        }
+        
+        // 如果状态是REVEAL，说明正在揭晓中，忽略按键
+        if(runtime.machine==="REVEAL"){
+          return;
+        }
+
+        // 如果状态不是预期的，重置为 IDLE
+        runtime.machine="IDLE";
+      }
+    }
+
+    /* 绑定 UI */
+    function bindUI(){
+      const sel=document.getElementById("levelSelect");
+      sel.addEventListener("change", ()=>{
+        const v=Number(sel.value);
+        if(v===0 && !mainLevelFinished(1)){
+          showToast("欧皇特等奖需在一等奖抽完后解锁");
+          sel.value=String(state.currentLevelId);
+          return;
+        }
+        state.currentLevelId=v;
+        saveState();
+
+        stopRollingAll();
+        runtime.machine="IDLE";
+        buildDrawSlotsMain();
+        updateLevelSelect();
+
+        setStatus("已切档：按一次先亮奖品");
+        showToast(`已切换：${prizeLevels.find(x=>x.id===v).name}`);
+      });
+
+      document.getElementById("btnNextDefault").addEventListener("click", ()=>{
+        unlockAllAudioOnce();
+        // 只有在用户没有手动暂停的情况下才自动播放BGM
+        if(!bgmStarted && !bgmManuallyPaused){
+          try{
+            ensureMuteState(bgm);
+            bgm.play().then(()=>{
+              bgmStarted=true;
+              bgmIsPlaying=true;
+            }).catch(()=>{});
+          }catch(e){}
+        }
+        maybeResumeBgmAfterWin();
+        nextDefaultLevel();
+
+        stopRollingAll();
+        runtime.machine="IDLE";
+        buildDrawSlotsMain();
+
+        setStatus("默认顺序：按一次先亮奖品");
+      });
+
+      // 禁用空格：点击后立即禁用按钮 600ms，只认一次，避免重复触发导致状态反了
+      const btnFreezeEl = document.getElementById("btnFreeze");
+      // 兜底：每次绑定 UI 时都把“禁用空格”状态复位，避免刷新/重开后出现卡死或按钮不可用
+      // 说明：抽奖进度会从 localStorage 恢复，但 isFrozen/awaitingNextLevel 不做持久化，避免把页面锁死。
+      isFrozen = false;
+      btnFreezeEl.disabled = false;
+      btnFreezeEl.innerHTML = "⏸ 禁用空格";
+      btnFreezeEl.style.opacity = "1";
+      btnFreezeEl.addEventListener("click", function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if(btnFreezeEl.disabled) return;
+        btnFreezeEl.disabled = true;
+        setTimeout(function(){ btnFreezeEl.disabled = false; }, 600);
+
+        isFrozen = !isFrozen;
+        if(isFrozen){
+          stopRollingAll();
+          runtime.machine = "IDLE";
+          btnFreezeEl.innerHTML = "▶ 恢复";
+          btnFreezeEl.style.opacity = "0.8";
+          setStatus("⏸ 已暂停，按「恢复」继续下一档");
+          showToast("⏸ 全屏已禁止，按「恢复」继续");
+        } else {
+          btnFreezeEl.innerHTML = "⏸ 禁用空格";
+          btnFreezeEl.style.opacity = "1";
+          setStatus("已恢复，按空格继续");
+          showToast("▶ 已恢复，可继续抽奖");
+        }
+      }, true);
+      const btnFreezeShortcut = document.getElementById("btnFreezeShortcut");
+      if(btnFreezeShortcut) btnFreezeShortcut.addEventListener("click", function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(!btnFreezeEl.disabled) btnFreezeEl.click();
+      }, true);
+
+      document.getElementById("btnDraw").addEventListener("click", ()=>{
+        unlockAllAudioOnce();
+        // 只有在用户没有手动暂停的情况下才自动播放BGM
+        if(!bgmStarted && !bgmManuallyPaused){
+          try{
+            ensureMuteState(bgm);
+            bgm.play().then(()=>{
+              bgmStarted=true;
+              bgmIsPlaying=true;
+            }).catch(()=>{});
+          }catch(e){}
+        }
+        handleDrawAction();
+      });
+
+      // 禁用空格 + 抽奖锁定：在 keydown 捕获阶段统一拦截 Space / F5 / Ctrl+R / Enter
+      document.addEventListener("keydown", (e)=>{
+        if(e.repeat) return;
+        const isSpace = (e.code==="Space" || e.key===" " || e.keyCode===32);
+        const isRefreshHotkey = hasLotteryStarted && (
+          e.key==="F5" || e.keyCode===116 ||
+          (e.ctrlKey && (e.key==="r" || e.key==="R" || e.keyCode===82))
+        );
+        const isEnter = e.key==="Enter" || e.keyCode===13;
+
+        // 抽奖开始后，屏蔽 F5 / Ctrl+R，防止误刷新
+        if(isRefreshHotkey){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          showToast("抽奖进行中已锁定刷新快捷键（F5 / Ctrl+R）");
+          return;
+        }
+        // 抽奖开始后，屏蔽回车键，防止误触“上一个焦点按钮”（如重置）导致误操作
+        if(hasLotteryStarted && isEnter){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          showToast("抽奖进行中已禁用回车键（防止误触重置）");
+          return;
+        }
+
+        // 只关心空格，其他键不处理
+        if(!isSpace) return;
+
+        if(isFrozen){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return;
+        }
+        e.preventDefault();
+        unlockAllAudioOnce();
+        // 第一次按空格就立即开始 BGM（不等到开奖结果出来）
+        if(!hasLotteryStarted){
+          if(!bgmStarted && !bgmManuallyPaused){
+            try{
+              ensureMuteState(bgm);
+              bgm.play().then(()=>{ bgmStarted=true; bgmIsPlaying=true; }).catch(()=>{});
+            }catch(err){}
+          }
+        } else if(!bgmIsPlaying && !bgmManuallyPaused){
+          playBgm();
+        }
+        handleDrawAction();
+      }, true);
+
+      // 抽奖开始后禁用鼠标右键，防止右键菜单切出/误触刷新
+      document.addEventListener("contextmenu", (e)=>{
+        if(hasLotteryStarted){
+          e.preventDefault();
+          e.stopPropagation();
+          showToast("抽奖进行中已禁用右键菜单");
+        }
+      }, true);
+
+      document.getElementById("btnCopy").addEventListener("click", copyRecords);
+      document.getElementById("btnReset").addEventListener("click", ()=>{
+        resetAll();
+      });
+      
+      // 静音功能：只用 isMuted 变量，每次点击强制翻转，确保不会错乱
+      const btnMuteEl = document.getElementById("btnMute");
+      let lastMuteAction = 0;
+      function toggleMute(){
+        const now = Date.now();
+        if(now - lastMuteAction < 500) return; // 500ms 防抖
+        lastMuteAction = now;
+        
+        // 直接翻转 isMuted，不读任何外部状态
+        isMuted = !isMuted;
+        
+        // 立即应用到所有音频
+        bgm.muted = isMuted;
+        winSfx.muted = isMuted;
+        bgm.volume = isMuted ? 0 : 1;
+        winSfx.volume = isMuted ? 0 : 1;
+        document.querySelectorAll('audio').forEach(a=>{
+          a.muted = isMuted;
+          a.volume = isMuted ? 0 : 1;
+        });
+        
+        // 更新按钮显示（主按钮 + 现场控制旁隐藏快捷钮）
+        if(btnMuteEl){
+          if(isMuted){
+            btnMuteEl.innerHTML = "🔇 取消静音";
+            btnMuteEl.style.opacity = "0.7";
+            showToast("🔇 已静音");
+          } else {
+            btnMuteEl.innerHTML = "🔊 静音";
+            btnMuteEl.style.opacity = "1";
+            showToast("🔊 已恢复声音");
+          }
+        }
+        const btnMuteShortcutEl = document.getElementById("btnMuteShortcut");
+        if(btnMuteShortcutEl) btnMuteShortcutEl.innerHTML = isMuted ? "🔇" : "🔊";
+      }
+      function applyMuteToAudio(audio) {
+        if(audio) { audio.muted = isMuted; if(isMuted) audio.volume = 0; }
+      }
+      // 确保初始状态：按钮显示"静音"，isMuted=false
+      if(btnMuteEl && isMuted === false){
+        btnMuteEl.innerHTML = "🔊 静音";
+        btnMuteEl.style.opacity = "1";
+      }
+      if(btnMuteEl){
+        btnMuteEl.addEventListener("click", function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation(); // 阻止其他监听器
+          toggleMute();
+        }, true); // 用 capture 阶段，优先执行
+      }
+      const btnMuteShortcut = document.getElementById("btnMuteShortcut");
+      if(btnMuteShortcut) btnMuteShortcut.addEventListener("click", function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if(btnMuteEl) btnMuteEl.click();
+      }, true);
+      // M 键静音已移除，避免与用户按键冲突，静音请用面板「静音」按钮
+      document.getElementById("btnBackToNormal").addEventListener("click", ()=>{
+        backToNormal();
+      });
+      
+      // 显示预设模式
+      const presetSelect = document.getElementById("presetSelect");
+      const savedPreset = localStorage.getItem('displayPreset') || 'normal';
+      presetSelect.value = savedPreset;
+      applyPreset(savedPreset);
+      
+      presetSelect.addEventListener("change", (e)=>{
+        const preset = e.target.value;
+        applyPreset(preset);
+        localStorage.setItem('displayPreset', preset);
+        showToast(`已切换为${e.target.selectedOptions[0].text}`);
+      });
+    }
+    
+    function applyPreset(preset){
+      // 移除所有模式类
+      document.body.classList.remove('mode-normal','mode-bigscreen');
+      // 添加对应的模式类
+      if(preset === 'normal'){
+        document.body.classList.add('mode-normal');
+      }else if(preset === 'bigscreen'){
+        document.body.classList.add('mode-bigscreen');
+      }
+    }
+
+    /* 启动：加载存档或初始化 */
+    function initApp(){
+      try{
+        stopRollingAll();
+        runtime.machine="IDLE";
+        runtime.currentPrizeText="";
+        runtime.currentCandidate=null;
+
+        // 确保 DOM 元素存在
+        if(!document.getElementById("wrapGrand")){
+          console.error('DOM 元素未加载完成');
+          setTimeout(initApp, 100);
+          return;
+        }
+
+        // 直接调用 initWall，如果不存在会抛出错误（由外层 try-catch 捕获）
+        initWall();
+
+        const ok=loadState();
+        if(!ok){
+          initFreshState(); // 首次初始化，不需要确认
+        }else{
+          normalizeState();
+
+          const hasAny=[0,1,2,3,4].some(id=>Array.isArray(state.prizeLeft[id]) && state.prizeLeft[id].length);
+          if(!hasAny){
+            resetAll();
+            return;
+          }
+
+          renderFromWinners();
+          decidePhase();
+          updateLevelSelect();
+          updateStatsUI();
+
+          if(state.phase==="JOY"){
+            const c=joyBatchCount() || 5;
+            setStatus(`继续喜乐同行：按空格显示奖品（${c}个）`);
+          }else if(state.phase==="DONE"){
+            setStatus("🎊 全部抽奖结束！（可导出记录）");
+          }else{
+            setStatus("继续主奖：按空格显示奖品");
+          }
+
+          showToast("✅ 已从本机存档恢复进度");
+        }
+
+        bindUI();
+      }catch(error){
+        console.error('初始化错误:', error);
+        showToast(`⚠️ 初始化失败: ${error.message}`);
+        // 尝试至少恢复数据
+        try{
+          const ok=loadState();
+          if(ok && state.winners && state.winners.length > 0){
+            showToast('✅ 检测到存档数据，请刷新页面重试');
+          }
+        }catch(e){
+          console.error('数据恢复失败:', e);
+        }
+      }
+    }
+
+    // 检查所有关键函数是否已定义（安全方式）
+    function checkRequiredFunctions(){
+      const required = [
+        'initWall', 'createWallSlot', 'fillWall', 'renderFromWinners',
+        'buildDrawSlotsMain', 'buildDrawSlotsJoy', 'updateStatsUI',
+        'updateLevelSelect', 'resetAll', 'loadState', 'saveState',
+        'bindUI', 'handleDrawAction', 'stopRollingAll'
+      ];
+      const missing = [];
+      for(const name of required){
+        // 通过 window 对象安全地检查函数是否存在
+        // 在浏览器中，全局函数会自动成为 window 的属性
+        if(typeof window[name] !== 'function'){
+          missing.push(name);
+        }
+      }
+      if(missing.length > 0){
+        console.error('缺少关键函数:', missing);
+        return false;
+      }
+      return true;
+    }
+
+    // 确保 DOM 加载完成后再初始化
+    function safeInit(){
+      // 多次尝试初始化，确保所有 script 块都已执行
+      let attempts = 0;
+      const maxAttempts = 15; // 增加重试次数
+      
+      function tryInit(){
+        attempts++;
+        try{
+          // 先检查关键函数是否存在
+          if(typeof initWall === 'undefined' || typeof initWall !== 'function'){
+            throw new Error('initWall is not defined');
+          }
+          // 直接尝试初始化
+          initApp();
+        }catch(error){
+          const isInitWallError = error.message && (
+            error.message.includes('initWall') || 
+            error.message.includes('is not defined') ||
+            error.name === 'ReferenceError'
+          );
+          
+          if(isInitWallError){
+            // initWall 未定义，等待后重试
+            if(attempts < maxAttempts){
+              console.log(`等待函数加载... (${attempts}/${maxAttempts})`);
+              setTimeout(tryInit, 300); // 增加等待时间
+            }else{
+              console.error('初始化失败：initWall 函数未加载');
+              showToast('⚠️ 初始化失败：关键函数未加载，请刷新页面');
+              // 尝试恢复数据
+              try{
+                if(typeof loadState === 'function'){
+                  const ok = loadState();
+                  if(ok && state && state.winners && state.winners.length > 0){
+                    showToast('✅ 检测到存档数据，请刷新页面恢复');
+                  }
+                }
+              }catch(e){
+                console.error('数据恢复失败:', e);
+              }
+            }
+          }else{
+            // 其他错误，直接显示
+            console.error('初始化错误:', error);
+            showToast(`⚠️ 初始化失败: ${error.message || error}`);
+          }
+        }
+      }
+      
+      // 等待 DOM 和所有 script 块加载（增加初始等待时间）
+      setTimeout(tryInit, 300);
+    }
+
+    // 使用 window.onload 确保所有资源都已加载
+    if(document.readyState === 'complete'){
+      // 页面已经完全加载
+      safeInit();
+    }else if(document.readyState === 'loading'){
+      // 页面还在加载
+      window.addEventListener('load', safeInit);
+      // 同时也监听 DOMContentLoaded，哪个先触发就用哪个
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(safeInit, 200);
+      });
+    }else{
+      // DOM 已加载但资源可能还在加载
+      safeInit();
+    }
+  </script>
+</body>
+</html>
+
